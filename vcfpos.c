@@ -1,16 +1,18 @@
 #include<stdio.h>
+#include<stdlib.h>
 
 int main()
 {
-	char buff[1000];
-	size_t buff_size = 1000;
-	char *linePtr = buff, *p=NULL, *p2=NULL;;
+	char * buff = calloc(1000, 1);;
+	size_t buff_size = 999;
+	char *p=NULL, *p2=NULL;;
 
-	while((getline(&linePtr, &buff_size, stdin) > 0))
+	while((getline(&buff, &buff_size, stdin) > 0))
 	{
-		if(*linePtr == '#') continue;
+		printf("%ld\n", buff_size);
+		if(*buff == '#') continue;
 		else{
-			p = linePtr;
+			p = buff;
 			while(*p != '\t')p++;
 			p++;
 
@@ -22,5 +24,11 @@ int main()
 			fprintf(stdout, "%s\n", p);
 		}
 	}
+
+	if(buff != NULL){
+		free(buff);
+		buff=NULL;
+	}
+	p = p2 = NULL;
 	return 0;
 }
