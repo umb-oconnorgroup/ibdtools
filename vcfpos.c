@@ -9,7 +9,7 @@ int main()
 
 	while((getline(&buff, &buff_size, stdin) > 0))
 	{
-		printf("%ld\n", buff_size);
+		// printf("%ld\n", buff_size);
 		if(*buff == '#') continue;
 		else{
 			p = buff;
