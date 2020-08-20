@@ -240,7 +240,7 @@ void calculate_tmrca_and_output_ibd()
 					s = ibdStartMatrix[id1*nsam+id2];
 					ibdLength = e - s;
 					if (ibdLength >= min_bp)
-						fprintf(f_ibd, "%d\t1\t%d\t1\t%d\t%ld\t%ld\t3\t%0.4f\t%lf\n",
+						fprintf(f_ibd, "%d\t1\t%d\t1\t%d\t%ld\t%ld\t%0.4f\t3\t%lf\n",
 								id1, id2, chrom, s, e, 
 								1.0 * ibdLength/bp_per_cm,
 								ibdTmrcaMatrix[id1*nsam+id2]
