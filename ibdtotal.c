@@ -67,6 +67,10 @@ void IBDTOTAL_readfile(struct IBDTOTAL *ibdtot, const char *filename) {
   // read in arrays according to size info
   fread(ibdtot->cM, sizeof(double), num_pairs, fp);
   fread(ibdtot->samples, sizeof(char), num_chars, fp);
+  for(int i=0; i<10; i++)fprintf(stderr, "%lf,", ibdtot->cM[i]);
+  fprintf(stdout, "\n");
+  for(int i=0; i<10; i++)fprintf(stderr, "%s,", ibdtot->samples +i * ibdtot->sample_name_len);
+  fprintf(stdout, "\n");
   fclose(fp);
   fp = NULL;
 }
@@ -280,6 +284,13 @@ double IBDTOTAL_get_cM_percentile(struct IBDTOTAL *ibdtot, double percentage) {
   assert(cM_temp != NULL);
   memcpy(cM_temp, ibdtot->cM, sizeof(double) * num_pairs);
 
+  for(size_t i =0 ; i < num_pairs; i++)
+  {
+	  fprintf(stderr, "%ld; %lf\n", i, ibdtot->cM[i]);
+	  assert(ibdtot->cM[i] >= -1);
+	  assert(cM_temp[i] >= -1);
+  }
+
   qsort(cM_temp, num_pairs, sizeof(double), cmp_double);
 
   assert(cM_temp[0]>=0);
@@ -306,10 +317,10 @@ double IBDTOTAL_get_cM_percentile(struct IBDTOTAL *ibdtot, double percentage) {
   assert(fp != NULL);
   for (int i = 0; i <= num_perc; i++) {
     double perc = 1.0 * i / num_perc;
-    long index = (long)(num_pairs * perc);
+    size_t index = (size_t)(num_pairs * perc);
     if (index >= num_pairs)
       index = num_pairs - 1;
-    fprintf(fp, "%g\t%g\n", perc, cM_temp[index]);
+    fprintf(fp, "%ld\t%g\t%g\n", index, perc, cM_temp[index]);
   }
   fclose(fp);
   fp = NULL;
