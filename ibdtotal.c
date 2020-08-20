@@ -203,17 +203,19 @@ void IBDTOTAL_print(struct IBDTOTAL *ibdtot) {
   // printf("-----------\n");
 
   double cM;
+  double genome_size = 3545.8;
   for (int i = 0; i < ibdtot->num_smaple - 1; i++)
     for (int j = i + 1; j < ibdtot->num_smaple; j++) {
       cM = IBDTOTAL_get_cM(ibdtot, i, j);
       if (cM < 1.9)
         continue;
       // printf("%d\t%s\t%d\t%s\t%lf\n",
-      printf("%s\t%s\t%lf\n",
+      printf("%s\t%s\t%g\t%g\n",
              // i,
              ibdtot->samples + i * ibdtot->sample_name_len,
              // j,
-             ibdtot->samples + j * ibdtot->sample_name_len, cM);
+             ibdtot->samples + j * ibdtot->sample_name_len, 
+	     cM, cM / genome_size);
     }
 }
 
@@ -280,6 +282,8 @@ double IBDTOTAL_get_cM_percentile(struct IBDTOTAL *ibdtot, double percentage) {
 
   qsort(cM_temp, num_pairs, sizeof(double), cmp_double);
 
+  assert(cM_temp[0]>=0);
+
   // calculate num_zeros
   for (size_t i = 0; i < num_pairs && cM_temp[i] < 0.1; i++, num_zeros++) {
   };
@@ -294,6 +298,40 @@ double IBDTOTAL_get_cM_percentile(struct IBDTOTAL *ibdtot, double percentage) {
 
   index += num_zeros;
   percentile = cM_temp[index];
+
+  // output_percentile
+  int num_perc = 1000;
+
+  FILE *fp = fopen("res_ibdtotal_quantile.txt", "w");
+  assert(fp != NULL);
+  for (int i = 0; i <= num_perc; i++) {
+    double perc = 1.0 * i / num_perc;
+    long index = (long)(num_pairs * perc);
+    if (index >= num_pairs)
+      index = num_pairs - 1;
+    fprintf(fp, "%g\t%g\n", perc, cM_temp[index]);
+  }
+  fclose(fp);
+  fp = NULL;
+
+  // output_histogram
+
+  fp = fopen("res_ibdtotal_hist.txt", "w");
+  assert(fp != NULL);
+  double bin_upper = 1;
+  size_t counter = 0;
+  for (size_t i = 0; i < num_pairs; i++) {
+    if (cM_temp[i] <= bin_upper)
+      counter++;
+    else {
+      fprintf(fp, "%g\t%g\t%ld\n", bin_upper - 1, bin_upper, counter);
+      counter = 0;
+      bin_upper += 1;
+      i--;
+    }
+  }
+  fclose(fp);
+  fp = NULL;
   free(cM_temp);
   cM_temp = NULL;
 
@@ -505,11 +543,14 @@ int main(int argc, char *argv[]) {
     // cutoff_cM = 50;
     // generate bmp
     IBDTOTAL_generate_map(&ibdtotal, "img_raw.bmp", cutoff_cM, NULL);
-    IBDTOTAL_generate_map(&ibdtotal, "mag_clust.bmp", cutoff_cM, sample_orders);
+    if (sample_orders != NULL)
+      IBDTOTAL_generate_map(&ibdtotal, "img_clust.bmp", cutoff_cM,
+                            sample_orders);
     // generate sample color
     IBDTOTAL_generate_map_legend(&ibdtotal, "img_raw_legend.bmp", NULL);
-    IBDTOTAL_generate_map_legend(&ibdtotal, "img_clust_legend.bmp",
-                                 sample_orders);
+    if (sample_orders != NULL)
+      IBDTOTAL_generate_map_legend(&ibdtotal, "img_clust_legend.bmp",
+                                   sample_orders);
   }
 
   return 0;
