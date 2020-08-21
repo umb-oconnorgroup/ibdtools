@@ -95,6 +95,9 @@ int main(int argc, char * argv[])
 			i--;
 		}
 	}
+	// print the last bin
+	fprintf(stderr, "%g\t%g\t%ld\n", upper_bound - bin_width, upper_bound, counter);
+
 	free(v.arr);
 	v.arr=NULL;
 	free(linePtr);
