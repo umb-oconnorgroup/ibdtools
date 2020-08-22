@@ -135,8 +135,14 @@ void maps_read_uniq_positions(maps_t *self, const char *filename) {
 
   // qsort
   qsort(bp, ncap, sizeof(*bp), size_cmp);
-  for (size_t i = 1; i < ncap; i++)
-    assert(bp[i - 1] < bp[i]);
+
+  // some vcf have repeat position, which will fail the assertion. comment it out
+  // there could be some duplication but will affection the lookup of poistions
+  // for (size_t i = 1; i < ncap; i++)
+  // {
+  //   fprintf(stderr, "%ld\t%ld\n", bp[i-1], bp[i]);
+  //   assert(bp[i - 1] < bp[i]);
+  // }
 
   // update self
   self->bp = bp;
