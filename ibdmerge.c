@@ -227,8 +227,8 @@ void maps_update_cM_from_map(maps_t *self, maps_t *ref_map) {
       cM[ind] = y;
     } else if (bp[ind] > bp_ref[nmemb_ref - 1]) {
       /* greater than last position in ref map */
-      double y_max = cM_ref[0];
-      size_t x_max = bp_ref[0];
+      double y_max = cM_ref[nmemb_ref - 1]; // fixed a bug here
+      size_t x_max = bp_ref[nmemb_ref - 1];
       size_t x = bp[ind];
       double y = y_max + right_ext_slope * (x - x_max);
       cM[ind] = y;
@@ -323,6 +323,9 @@ void ibd_read(ibd_t *self, const char *fn_samples, const char *fn_positions,
   maps_read_uniq_positions(&maps, fn_positions);
   maps_read_map_file(&refmaps, fn_refmap);
   maps_update_cM_from_map(&maps, &refmaps);
+
+  // for(size_t i=1; i< maps.nmemb ; i++)
+	//	  assert(maps.cM[i-1]<=maps.cM[i]);
 
   FILE *fp = NULL;
   if (strcmp(fn_ibds, "stdin") == 0)
@@ -493,10 +496,19 @@ void ibd_print_merged_ibd(ibd_t *self) {
     pName2 = names + name_size * lines[i].id2;
     pbp = (size_t *)bsearch(&(lines[i].start), maps->bp, maps->nmemb,
                             sizeof(size_t), size_cmp);
+    assert(pbp!=NULL);
     cM_start = maps->cM[pbp - maps->bp];
+
     pbp = (size_t *)bsearch(&(lines[i].end), maps->bp, maps->nmemb,
                             sizeof(size_t), size_cmp);
+    assert(pbp!=NULL);
     cM_end = maps->cM[pbp - maps->bp];
+
+    if(cM_end < cM_start)
+    {
+    	fprintf(stderr, "%s\t1\t%s\t1\t%d\t%ld\t%ld\t%lf\t%lf\n", pName1, pName2,
+            self->chr, lines[i].start, lines[i].end, cM_start, cM_end );
+    }
 
     fprintf(stdout, "%s\t1\t%s\t1\t%d\t%ld\t%ld\t%lf\t%d\n", pName1, pName2,
             self->chr, lines[i].start, lines[i].end, cM_end - cM_start, 3);
