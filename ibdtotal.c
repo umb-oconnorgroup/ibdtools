@@ -1,45 +1,284 @@
-/*
-NWD112649	1	NWD278543	1	21	16453940
-16634657	2.06	2.059
-NWD112649	2	NWD784564	1	21	16453940
-16636429	2.06	2.06
-NWD112649	1	NWD777183	2	21	16453940
-16667976	2.08	2.077
-NWD112649	1	NWD715103	2	21	16453940
-16676880	2.08	2.083
-NWD112649	1	NWD843745	1	21	16453940
-16634657	2.06	2.059
-NWD112649	0	NWD741447	0	21	16453940
-16640949	2.07	2.068
-NWD112649	1	NWD778585	1	21	16453940
-16634657	2.06	2.059
-NWD112649	1	NWD261612	2	21	16453940
-16636429	2.06	2.06
-NWD112649	1	NWD555559	1	21	16453940
-16638138	2.06	2.063
-NWD112649	1	NWD463256	1	21	16453940
-16667976	2.08	2.077
-*/
-
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+struct IDPAIR {
+  size_t key;
+  size_t id;
+};
+
+struct METAINFO {
+  char *uniq_labels;
+  size_t lsize; // num of chars per label names
+  int n_uniq;
+
+  struct IDPAIR *pairs; // key = sample id, id = label id;
+  int npairs;
+};
+
 // those segments are non-overlapping
 struct IBDTOTAL {
   double *cM;    // array of size equal: num_pairs = n*(n-1)/2
   char *samples; // size of n
-  int num_smaple;
+  int num_sample;
   size_t sample_name_len;
 };
+
+struct RGB {
+  unsigned char b;
+  unsigned char g;
+  unsigned char r;
+};
+
+struct RGB RGB_from_hsv(double h, double s, double v) {
+  assert(h >= 0 && h < 360);
+  assert(s >= 0 && s <= 1);
+  assert(v >= 0 && v <= 1);
+  fprintf(stderr, "%g, %g, %g\n", h, s, v);
+
+  double C = v * s;
+  double X = C * (1 - abs(((int)h / 60) % 2 - 1));
+  double m = v - C;
+
+  double R, G, B; // bug fixed, need to be double not int
+  if (h < 60) {
+    R = C;
+    G = X;
+    B = 0;
+  } else if (h < 120) {
+    R = X;
+    G = C;
+    B = 0;
+  } else if (h < 180) {
+    R = 0;
+    G = C;
+    B = X;
+  } else if (h < 240) {
+    R = 0;
+    G = X;
+    B = C;
+  } else if (h < 300) {
+    R = X;
+    G = 0;
+    B = C;
+  } else if (h < 360) {
+    R = C;
+    G = 0;
+    B = X;
+  } else {
+  };
+
+  struct RGB color;
+
+  color.r = (unsigned char)((R + m) * 255);
+  color.g = (unsigned char)((G + m) * 255);
+  color.b = (unsigned char)((B + m) * 255);
+
+  return color;
+}
+
+void RGB_print_RGB_from_hsv(double h, double s, double v) {
+  struct RGB color = RGB_from_hsv(h, s, v);
+  printf("hsv: %g\t%g\t%g\tRGB:#%02x%02x%02x\n", h, s, v, color.r, color.g,
+         color.b);
+}
+
+void test_RGB_from_hsv() {
+  RGB_print_RGB_from_hsv(0, 0, 0);
+  RGB_print_RGB_from_hsv(0, 0, 1);
+  RGB_print_RGB_from_hsv(0, 1, 1);
+  RGB_print_RGB_from_hsv(120, 1, 1);
+  RGB_print_RGB_from_hsv(240, 1, 1);
+  RGB_print_RGB_from_hsv(60, 1, 1);
+  RGB_print_RGB_from_hsv(180, 1, 1);
+  RGB_print_RGB_from_hsv(300, 1, 1);
+  RGB_print_RGB_from_hsv(0, 0, 0.75);
+  RGB_print_RGB_from_hsv(0, 0, 0.5);
+  RGB_print_RGB_from_hsv(0, 1, 0.5);
+  RGB_print_RGB_from_hsv(60, 1, 0.5);
+  RGB_print_RGB_from_hsv(120, 1, 0.5);
+  RGB_print_RGB_from_hsv(300, 1, 0.5);
+  RGB_print_RGB_from_hsv(180, 1, 0.5);
+  RGB_print_RGB_from_hsv(240, 1, 0.5);
+}
+
+int main1() {
+  // test_RGB_from_hsv();
+  return 0;
+}
+void RGB_generate_colors(size_t howmany, struct RGB *colors) {}
+
+int cmp_string(const void *str1, const void *str2) {
+  return strcmp((char *)str1, (char *)str2);
+}
+
+int cmp_double(const void *d1, const void *d2) {
+  return *((double *)d1) > *((double *)d2) ? 1 : -1;
+}
+
+int cmp_idpair(const void *id1, const void *id2) {
+  size_t key1 = ((struct IDPAIR *)id1)->key;
+  size_t key2 = ((struct IDPAIR *)id2)->key;
+  if (key1 == key2)
+    return 0;
+  else
+    return key1 > key2 ? 1 : -1;
+}
+
+/*
+ * This function parses the meta table
+ * 1) read in a meta table,
+ * 2) parse the meta talbe into integer ids and
+ * 3) an array of unique labels
+ * 4) then sort the sample_id - lable-id by sample_id.
+ *
+ * scol, lcol are column numbers of sample names and lables, from 1 to ...
+ * */
+void IBDTOTAL_meta_read(struct IBDTOTAL *ibdtot, const char *fn_sample_map,
+                        int scol, int lcol, struct METAINFO *meta) {
+  size_t nsam = ibdtot->num_sample;
+  meta->npairs = nsam;
+
+  FILE *fp = fopen(fn_sample_map, "r");
+  assert(fp != NULL);
+
+  /* first round read the table to get the size of max len of label names */
+  char *linePtr = NULL, *token = NULL;
+  size_t lineSize = 0;
+  meta->lsize = 0;
+  while (getline(&linePtr, &lineSize, fp) > 0 && *linePtr != '\n') {
+    token = strtok(linePtr, "\t \n");
+    for (int i = 2; i <= lcol; i++) // find the correct column
+      token = strtok(NULL, "\t \n");
+    int str_len = strlen(token);
+    if (meta->lsize < str_len)
+      meta->lsize = str_len;
+  }
+  meta->lsize += 1; // considering the additional '\0'
+
+  /* alloc memory */
+  char *label_names = calloc(nsam, meta->lsize);
+  char *label_names2 = calloc(nsam, meta->lsize);
+  meta->pairs = calloc(nsam, sizeof(*meta->pairs));
+
+  /* second round read the actual content of the sample name and labels name
+   * parse the sample names to ids based on the sample names in ibdtot */
+  fseek(fp, 0, SEEK_SET);
+  for (size_t i = 0; i < nsam; i++) {
+    getline(&linePtr, &lineSize, fp);
+    int icol = 1;
+    for (token = strtok(linePtr, "\t \n"); icol <= (lcol > scol ? lcol : scol);
+         icol++) { // bug fixed
+      if (icol == lcol) {
+        strcpy(label_names + i * meta->lsize, token);
+      } else if (icol == scol) {
+        // samples are already sorted before this.
+        char *p = bsearch(token, ibdtot->samples, nsam, ibdtot->sample_name_len,
+                          cmp_string);
+        assert(p != NULL);
+        meta->pairs[i].key = (p - ibdtot->samples) / ibdtot->sample_name_len;
+      } else {
+      };
+      token = strtok(NULL, "\t \n"); // bug fixed
+    };
+  }
+  free(linePtr);
+  linePtr = NULL;
+
+  /* make a copy of labels and sort the label, find a unique list of labels */
+  memcpy(label_names2, label_names, nsam * meta->lsize);
+  qsort(label_names2, nsam, meta->lsize, cmp_string);
+
+  meta->n_uniq = 1;
+  size_t last_uniq_id = 0;
+
+  for (size_t i = 1; i < nsam; i++) {
+    if (strcmp(label_names2 + meta->lsize * i,
+               label_names2 + meta->lsize * last_uniq_id) == 0)
+      *(label_names2 + meta->lsize * i) = '\0';
+    else {
+      last_uniq_id++;
+      meta->n_uniq++;
+      strcpy(label_names2 + meta->lsize * last_uniq_id,
+             label_names2 + meta->lsize * i);
+    }
+  }
+
+  label_names2 = realloc(label_names2, meta->n_uniq * meta->lsize);
+  meta->uniq_labels = label_names2;
+  label_names2 = NULL;
+
+  /* based on the uniq l abels array, assign label id to each sample */
+  fprintf(stderr, "%ld\n", nsam);
+  for (size_t i = 0; i < nsam; i++) {
+    // printf("%ld\t%s\n", i, label_names + i * meta->lsize);
+    char *p = bsearch(label_names + i * meta->lsize, meta->uniq_labels,
+                      meta->n_uniq, meta->lsize, cmp_string);
+    meta->pairs[i].id = (p - meta->uniq_labels) / meta->lsize;
+  }
+
+  free(label_names);
+  fclose(fp);
+  fp = NULL;
+
+  /* sort id pair by sample id */
+  qsort(meta->pairs, nsam, sizeof(*meta->pairs), cmp_idpair);
+}
+
+void IBDTOTAL_make_toy_data(struct IBDTOTAL *ibdtot,
+                            const char *fn_toy_meta_to_write) {
+  ibdtot->num_sample = 100;
+  ibdtot->sample_name_len = 20;
+  size_t num_pairs = ibdtot->num_sample * (ibdtot->num_sample - 1) / 2;
+  ibdtot->samples = calloc(ibdtot->num_sample, ibdtot->sample_name_len);
+  ibdtot->cM = calloc(num_pairs, sizeof(double));
+
+  for (size_t i = 0; i < ibdtot->num_sample; i++)
+    sprintf(ibdtot->samples + i * ibdtot->sample_name_len, "s%ld", i);
+  for (size_t i = 0; i < num_pairs; i++)
+    ibdtot->cM[i] = rand() % 1000 * 0.1;
+
+  qsort(ibdtot->samples, ibdtot->num_sample, ibdtot->sample_name_len,
+        cmp_string);
+
+  FILE *fp = fopen(fn_toy_meta_to_write, "w");
+  assert(fp != NULL);
+  for (size_t i = 0; i < ibdtot->num_sample; i++)
+    fprintf(fp, "%s\tlabel_%d\n", ibdtot->samples + i * ibdtot->sample_name_len,
+            rand() % 8);
+
+  fclose(fp);
+
+  fp = NULL;
+}
+
+int test_IBDTOTAL_meta_read() {
+  struct IBDTOTAL ibdtot;
+  struct METAINFO meta;
+
+  IBDTOTAL_make_toy_data(&ibdtot, "toy_meta.txt");
+
+  IBDTOTAL_meta_read(&ibdtot, "toy_meta.txt", 1, 2, &meta);
+  printf("stderr: %d\n", ibdtot.num_sample);
+
+  for (size_t i = 0; i < ibdtot.num_sample; i++) {
+    fprintf(stderr, "%s\t%ld\t%s\t%ld\n",
+            ibdtot.samples + ibdtot.sample_name_len * meta.pairs[i].key,
+            meta.pairs[i].key, meta.uniq_labels + meta.lsize * meta.pairs[i].id,
+            meta.pairs[i].id);
+    fflush(stderr);
+  }
+
+  return 0;
+}
 
 void IBDTOTAL_writefile(struct IBDTOTAL *ibdtot, const char *filename) {
   FILE *fp = fopen(filename, "wb");
   assert(fp != NULL);
-  int num_pairs = ibdtot->num_smaple * (ibdtot->num_smaple - 1) / 2;
-  int num_chars = ibdtot->num_smaple * ibdtot->sample_name_len;
+  int num_pairs = ibdtot->num_sample * (ibdtot->num_sample - 1) / 2;
+  int num_chars = ibdtot->num_sample * ibdtot->sample_name_len;
   fwrite(ibdtot, sizeof(struct IBDTOTAL), 1, fp);
   fwrite(ibdtot->cM, sizeof(double), num_pairs, fp);
   fwrite(ibdtot->samples, sizeof(char), num_chars, fp);
@@ -57,8 +296,8 @@ void IBDTOTAL_readfile(struct IBDTOTAL *ibdtot, const char *filename) {
   ibdtot->samples = NULL;
 
   // alloc according to size information
-  int num_pairs = ibdtot->num_smaple * (ibdtot->num_smaple - 1) / 2;
-  int num_chars = ibdtot->num_smaple * ibdtot->sample_name_len;
+  int num_pairs = ibdtot->num_sample * (ibdtot->num_sample - 1) / 2;
+  int num_chars = ibdtot->num_sample * ibdtot->sample_name_len;
   ibdtot->cM = (double *)malloc(sizeof(double) * num_pairs);
   assert(ibdtot->cM != NULL);
   ibdtot->samples = (char *)malloc(sizeof(char) * num_chars);
@@ -67,20 +306,9 @@ void IBDTOTAL_readfile(struct IBDTOTAL *ibdtot, const char *filename) {
   // read in arrays according to size info
   fread(ibdtot->cM, sizeof(double), num_pairs, fp);
   fread(ibdtot->samples, sizeof(char), num_chars, fp);
-  for(int i=0; i<10; i++)fprintf(stderr, "%lf,", ibdtot->cM[i]);
-  fprintf(stdout, "\n");
-  for(int i=0; i<10; i++)fprintf(stderr, "%s,", ibdtot->samples +i * ibdtot->sample_name_len);
-  fprintf(stdout, "\n");
+
   fclose(fp);
   fp = NULL;
-}
-
-int cmp_string(const void *str1, const void *str2) {
-  return strcmp((char *)str1, (char *)str2);
-}
-
-int cmp_double(const void *d1, const void *d2) {
-  return *((double *)d1) > *((double *)d2) ? 1 : -1;
 }
 
 void IBDTOTAL_init(struct IBDTOTAL *ibdtot, const char *samples_file_name) {
@@ -93,22 +321,22 @@ void IBDTOTAL_init(struct IBDTOTAL *ibdtot, const char *samples_file_name) {
 
   // determine max sample name len and how many samples;
   ibdtot->sample_name_len = 0;
-  ibdtot->num_smaple = 0;
+  ibdtot->num_sample = 0;
   ibdtot->sample_name_len = 0;
   while (getline(&p, &buff_size, fp) > 0) {
-    ibdtot->num_smaple += 1;
+    ibdtot->num_sample += 1;
     if (strlen(p) + 1 > ibdtot->sample_name_len)
       ibdtot->sample_name_len = strlen(p) + 1;
     buff_size = 99;
   }
-  ibdtot->samples = (char *)calloc(ibdtot->num_smaple,
+  ibdtot->samples = (char *)calloc(ibdtot->num_sample,
                                    sizeof(char) * ibdtot->sample_name_len);
   // printf("size(p): %ld\n", ibdtot->sample_name_len);
   // printf("size(p): %d\n", ibdtot->num_smaple);
 
   // read in the sample sames
   fseek(fp, 0, SEEK_SET);
-  for (int i = 0; i < ibdtot->num_smaple; i++) {
+  for (int i = 0; i < ibdtot->num_sample; i++) {
     p = ibdtot->samples + i * ibdtot->sample_name_len;
     buff_size = ibdtot->sample_name_len;
     assert(getline(&p, &buff_size, fp) > 0);
@@ -121,12 +349,13 @@ void IBDTOTAL_init(struct IBDTOTAL *ibdtot, const char *samples_file_name) {
   fp = NULL;
 
   // sorting sample names
-  qsort(ibdtot->samples, ibdtot->num_smaple, ibdtot->sample_name_len,
+  qsort(ibdtot->samples, ibdtot->num_sample, ibdtot->sample_name_len,
         cmp_string);
 
   // allocate mem for cM
-  size_t num_pairs = ibdtot->num_smaple * (ibdtot->num_smaple - 1) / 2;
+  size_t num_pairs = ibdtot->num_sample * (ibdtot->num_sample - 1) / 2;
   ibdtot->cM = (double *)calloc(num_pairs, sizeof(double));
+
 };
 
 void IBDTOTAL_free(struct IBDTOTAL *ibdtot, const char *samples_file_name) {
@@ -141,7 +370,7 @@ void IBDTOTAL_free(struct IBDTOTAL *ibdtot, const char *samples_file_name) {
 }
 int IBDTOTAL_find_smaple_intID(struct IBDTOTAL *ibdtot, const char *str) {
   int i;
-  char *p = (char *)bsearch(str, ibdtot->samples, ibdtot->num_smaple,
+  char *p = (char *)bsearch(str, ibdtot->samples, ibdtot->num_sample,
                             ibdtot->sample_name_len, cmp_string);
   i = (p - ibdtot->samples) / ibdtot->sample_name_len;
   return i;
@@ -165,7 +394,7 @@ int IBDTOTAL_sampleIds_to_index(struct IBDTOTAL *ibdtot, int id1, int id2) {
     id2 = temp;
   }
 
-  return (2 * ibdtot->num_smaple - id1 - 1) * id1 / 2 + id2 - id1 - 1;
+  return (2 * ibdtot->num_sample - id1 - 1) * id1 / 2 + id2 - id1 - 1;
 }
 
 void IBDTOTAL_add_cM(struct IBDTOTAL *ibdtot, const char *str1,
@@ -208,8 +437,8 @@ void IBDTOTAL_print(struct IBDTOTAL *ibdtot) {
 
   double cM;
   double genome_size = 3545.8;
-  for (int i = 0; i < ibdtot->num_smaple - 1; i++)
-    for (int j = i + 1; j < ibdtot->num_smaple; j++) {
+  for (int i = 0; i < ibdtot->num_sample - 1; i++)
+    for (int j = i + 1; j < ibdtot->num_sample; j++) {
       cM = IBDTOTAL_get_cM(ibdtot, i, j);
       if (cM < 1.9)
         continue;
@@ -218,8 +447,8 @@ void IBDTOTAL_print(struct IBDTOTAL *ibdtot) {
              // i,
              ibdtot->samples + i * ibdtot->sample_name_len,
              // j,
-             ibdtot->samples + j * ibdtot->sample_name_len, 
-	     cM, cM / genome_size);
+             ibdtot->samples + j * ibdtot->sample_name_len, cM,
+             cM / genome_size);
     }
 }
 
@@ -258,9 +487,8 @@ int WriteIMAGE(const char *filename, int w, int h, unsigned char *img) {
     fwrite(img + (w * (h - i - 1) * 3), 3, w, f);
     fwrite(bmppad, 1, (4 - (w * 3) % 4) % 4, f);
   }
-
-  free(img);
   fclose(f);
+
   return 0;
 }
 
@@ -275,7 +503,7 @@ double IBDTOTAL_get_cM_percentile(struct IBDTOTAL *ibdtot, double percentage) {
   double percentile = 0, *cM_temp = NULL;
   size_t index = 0;
   size_t num_zeros = 0, i, num_nonzeros;
-  size_t num_pairs = ibdtot->num_smaple * (ibdtot->num_smaple - 1) / 2;
+  size_t num_pairs = ibdtot->num_sample * (ibdtot->num_sample - 1) / 2;
 
   assert(percentage >= 0);
   assert(percentage <= 100);
@@ -284,16 +512,10 @@ double IBDTOTAL_get_cM_percentile(struct IBDTOTAL *ibdtot, double percentage) {
   assert(cM_temp != NULL);
   memcpy(cM_temp, ibdtot->cM, sizeof(double) * num_pairs);
 
-  for(size_t i =0 ; i < num_pairs; i++)
-  {
-	  fprintf(stderr, "%ld; %lf\n", i, ibdtot->cM[i]);
-	  assert(ibdtot->cM[i] >= -1);
-	  assert(cM_temp[i] >= -1);
-  }
 
   qsort(cM_temp, num_pairs, sizeof(double), cmp_double);
 
-  assert(cM_temp[0]>=0);
+  assert(cM_temp[0] >= 0);
 
   // calculate num_zeros
   for (size_t i = 0; i < num_pairs && cM_temp[i] < 0.1; i++, num_zeros++) {
@@ -352,7 +574,7 @@ double IBDTOTAL_get_cM_percentile(struct IBDTOTAL *ibdtot, double percentage) {
 
 int IBDTOTAL_generate_map(struct IBDTOTAL *ibdtot, char *filename,
                           double cutoff_cM, int *sample_orders) {
-  int w = ibdtot->num_smaple / 3;
+  int w = ibdtot->num_sample / 3;
   int h = w;
   int index, i1, i2;
   double value, temp;
@@ -421,13 +643,14 @@ int IBDTOTAL_generate_map(struct IBDTOTAL *ibdtot, char *filename,
 
   WriteIMAGE(filename, w, h, img);
 
+  free(img);
   return 0;
 }
 
 // TODO: work on color pallete
 void IBDTOTAL_generate_map_legend(struct IBDTOTAL *ibdtot, const char *image_fn,
                                   int *sample_orders) {
-  int num_samples = ibdtot->num_smaple;
+  int num_samples = ibdtot->num_sample;
   struct RGB {
     unsigned char b;
     unsigned char g;
@@ -479,6 +702,97 @@ void IBDTOTAL_generate_map_legend(struct IBDTOTAL *ibdtot, const char *image_fn,
   WriteIMAGE(image_fn, width, height, img);
 }
 
+void IBDTOTAL_generate_label_bar(struct IBDTOTAL *ibdtot, const char *image_fn,
+                                 struct METAINFO *meta, int *sample_orders) {
+
+  int num_samples = ibdtot->num_sample;
+
+  int width = 5000, height = num_samples;
+  unsigned char *img = malloc(3 * width * height * sizeof(*img));
+
+  for (int row = 0; row < num_samples; row++) {
+    int index;
+    if (sample_orders != NULL)
+      index = sample_orders[row];
+    else
+      index = row;
+    size_t label_id = meta->pairs[index].id;
+    struct RGB color = RGB_from_hsv(360.0 * label_id / meta->n_uniq, 1, 0.5);
+
+    for (int col = 0; col < width; col++)
+      memcpy(img + 3 * (row * width + col), &color, sizeof(struct RGB));
+    //  printf("index=%d, r=%uz, g=%uz, b=%uz\n",index,  color.r, color.g,
+    //  color.b);
+  }
+  WriteIMAGE(image_fn, width, height, img);
+  free(img);
+  img = NULL;
+
+  // write label block image
+  unsigned char *img_sorted_by_label =
+      malloc(3 * width * height * sizeof(*img));
+  size_t *label_counts = calloc(meta->n_uniq, sizeof(*label_counts));
+  for (size_t i = 0; i < meta->npairs; i++)
+    label_counts[meta->pairs[i].id] += 1;
+
+  size_t nrow = 0;
+  for (size_t block = 0; block < meta->n_uniq; block++) {
+    struct RGB color = RGB_from_hsv(360.0 * block / meta->n_uniq, 1, 0.5);
+    for (size_t pixel = 0; pixel < width * label_counts[block]; pixel++)
+      memcpy(img_sorted_by_label + 3 * (nrow * width + pixel), &color,
+             sizeof(struct RGB));
+    nrow += label_counts[block];
+  }
+
+  char newname[100];
+  strcpy(newname, image_fn);
+  strtok(newname, ".");
+  strcat(newname, "_block.bmp");
+  WriteIMAGE(newname, width, height, img_sorted_by_label);
+
+  // write unique lable list in the same order of the color block
+  memset(newname, 100, sizeof(char));
+  strcpy(newname, image_fn);
+  strtok(newname, ".");
+  strcat(newname, "_block_label.txt");
+  FILE *fp = fopen(newname, "w");
+  assert(fp != NULL);
+  for (size_t block = 0; block < meta->n_uniq; block++)
+    fprintf(fp, "%s\n", meta->uniq_labels + block * meta->lsize);
+  fclose(fp);
+  fp = NULL;
+
+  free(img_sorted_by_label);
+  img_sorted_by_label = NULL;
+  free(label_counts);
+  label_counts = NULL;
+}
+
+void test_IBDTOTAL_generate_label_bar() {
+  struct IBDTOTAL ibdtot;
+  IBDTOTAL_make_toy_data(&ibdtot, "toy_meta.txt");
+  struct METAINFO meta;
+  IBDTOTAL_meta_read(&ibdtot, "toy_meta.txt", 1, 2, &meta);
+
+  FILE *fp_order =
+      fopen("./sample_orders.txt", "r"); // argc[3] is sample order files
+  assert(fp_order != NULL);
+  int *sample_orders = calloc(ibdtot.num_sample, sizeof(*sample_orders));
+  assert(sample_orders != NULL);
+  for (int i = 0; i < ibdtot.num_sample; i++) {
+    fscanf(fp_order, "%d", sample_orders + i);
+    // fprintf(stderr, "%d " , sample_orders[i]);
+  }
+  fclose(fp_order);
+  fp_order = NULL;
+  IBDTOTAL_generate_label_bar(&ibdtot, "1.bmp", &meta, sample_orders);
+}
+
+int main2() {
+  test_IBDTOTAL_generate_label_bar();
+  return 0;
+}
+
 int main(int argc, char *argv[]) {
   struct IBDTOTAL ibdtotal;
 
@@ -489,10 +803,11 @@ int main(int argc, char *argv[]) {
   char *s1, *s2;
   double cM, cutoff_cM;
   char *beg = NULL, *sep = NULL;
+  int chr;
 
-  if (argc == 1 || argc > 4) {
+  if (argc != 2 && argc != 7) {
     fprintf(stderr, "\nUsage: ./ibdtotal <samples_list file> [<matrix_file> "
-                    "<samples_orders_file>]\n\n");
+                    "<samples_orders_file> <meta_table> <scol> <lcol>]\n\n");
     exit(1);
   }
   /* read merged ibd from stdin*/
@@ -511,6 +826,8 @@ int main(int argc, char *argv[]) {
           s1 = token;
         else if (colCount == 3)
           s2 = token;
+	else if(colCount == 5)
+	  chr = atoi(token);
         else if (colCount == 8)
           cM = strtod(token, NULL);
         else {
@@ -525,26 +842,25 @@ int main(int argc, char *argv[]) {
     IBDTOTAL_print(&ibdtotal);
   }
   /* read ibdtotal from matrix*/
-  else if (argc > 3) {
+  else if (argc == 7) {
     IBDTOTAL_init(&ibdtotal, argv[1]); // argv[1] = samples_list file
     fprintf(stderr, "reading file\n");
     IBDTOTAL_readfile(&ibdtotal, argv[2]);
     fprintf(stderr, "done reading file\n");
 
+
     int *sample_orders = NULL;
-    if (argc == 4) {
-      // reading order files
-      FILE *fp_order = fopen(argv[3], "r"); // argc[3] is sample order files
-      assert(fp_order != NULL);
-      sample_orders = calloc(ibdtotal.num_smaple, sizeof(*sample_orders));
-      assert(sample_orders != NULL);
-      for (int i = 0; i < ibdtotal.num_smaple; i++) {
-        fscanf(fp_order, "%d", sample_orders + i);
-        // fprintf(stderr, "%d " , sample_orders[i]);
-      }
-      fclose(fp_order);
-      fp_order = NULL;
+    // reading order files
+    FILE *fp_order = fopen(argv[3], "r"); // argc[3] is sample order files
+    assert(fp_order != NULL);
+    sample_orders = calloc(ibdtotal.num_sample, sizeof(*sample_orders));
+    assert(sample_orders != NULL);
+    for (int i = 0; i < ibdtotal.num_sample; i++) {
+      fscanf(fp_order, "%d", sample_orders + i);
+      // fprintf(stderr, "%d " , sample_orders[i]);
     }
+    fclose(fp_order);
+    fp_order = NULL;
 
     fprintf(stderr, "start");
 
@@ -558,10 +874,13 @@ int main(int argc, char *argv[]) {
       IBDTOTAL_generate_map(&ibdtotal, "img_clust.bmp", cutoff_cM,
                             sample_orders);
     // generate sample color
-    IBDTOTAL_generate_map_legend(&ibdtotal, "img_raw_legend.bmp", NULL);
-    if (sample_orders != NULL)
-      IBDTOTAL_generate_map_legend(&ibdtotal, "img_clust_legend.bmp",
-                                   sample_orders);
+    struct METAINFO meta;
+    IBDTOTAL_meta_read(&ibdtotal, argv[4], atoi(argv[5]), atoi(argv[6]), &meta);
+    IBDTOTAL_generate_label_bar(&ibdtotal, "img_clust_label.bmp", &meta,
+                                sample_orders);
+
+    free(sample_orders);
+    sample_orders = NULL;
   }
 
   return 0;
