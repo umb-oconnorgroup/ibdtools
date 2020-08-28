@@ -1,6 +1,6 @@
 import numpy as np
-import sys
 import msprime
+import sys
 
 
 def find_tree_leaves_of_any_node(tree, u):
@@ -25,29 +25,47 @@ def update_matrices_and_output_ibd_for_sample_pair(
     TODO: codes deal with special case like the last tree. last tree all should
     breaks at the end of the interval, but current implementation igored them..
     """
-
     last_tmrca = tmrca_matrix[row, col]
     tmrca_matrix[row, col] = int(current_tmrca)
     last_break_pos = breakpos_matrix[row, col]
     breakpos_matrix[row, col] = interval_start_pos
     IBD_seg_length = interval_start_pos - last_break_pos
 
+    assert(last_tmrca != current_tmrca)
+
     update_matrices_and_output_ibd_for_sample_pair.longest = max(
         update_matrices_and_output_ibd_for_sample_pair.longest,
         IBD_seg_length)
 
     if IBD_seg_length > ibd_threshold_in_bp:
-        print("{id1}\t{hap1}\t{id2}\t{hap2}\t{chr}\t"
-              "{start}\t{end}]\t{cM}\t{tmrca}".format(
+        print("{id1}\t{hap1}\t{id2}\t{hap2}\t{chrom}\t"
+              "{start:0.2f}\t{end:0.2f}\t{cM:0.2f}\t{tmrca:0.2f}".format(
                   id1=row, hap1=1, id2=col, hap2=1,
-                  chr=1, start=last_break_pos,
+                  chrom=chrom, start=last_break_pos,
                   end=interval_start_pos,
                   cM=IBD_seg_length / bp_per_cM,
                   tmrca=last_tmrca))
         update_matrices_and_output_ibd_for_sample_pair.num_ibd += 1
 
-update_matrices_and_output_ibd_for_sample_pair.longest = 0
-update_matrices_and_output_ibd_for_sample_pair.num_ibd = 0
+
+def output_last_ibds_for_all_pairs(
+        tmrca_matrix, breakpos_matrix, num_samples, tree_end,
+        chrom, bp_per_cM, ibd_threshold_in_bp):
+
+    for col in range(0, num_samples - 1):
+        for row in range(col + 1, num_samples):
+            tmrca = tmrca_matrix[row, col]
+            last_break_pos = breakpos_matrix[row, col]
+            IBD_seg_length = tree_end - last_break_pos
+            if IBD_seg_length > ibd_threshold_in_bp:
+                print("{id1}\t{hap1}\t{id2}\t{hap2}\t{chrom}\t"
+                      "{start:0.2f}\t{end:0.2f}\t{cM:0.2f}\t"
+                      "{tmrca:0.2f}".format(
+                          id1=row, hap1=1, id2=col, hap2=1,
+                          chrom=chrom, start=last_break_pos,
+                          end=tree_end,
+                          cM=IBD_seg_length / bp_per_cM,
+                          tmrca=tmrca))
 
 
 def update_matrices_due_to_new_ancestral_node(
@@ -71,14 +89,14 @@ def update_matrices_due_to_new_ancestral_node(
 
 
 def update_matries_due_to_new_leaves(
-        tree, src_node, tmrca_matrix, breakpos_matrix,
+        tree, M, RN, tmrca_matrix, breakpos_matrix,
         chrom, bp_per_cM, ibd_threshold_in_bp):
 
     interval_start_pos = tree.interval[0]
-    new_leaves = find_tree_leaves_of_any_node(tree, src_node)
-    run_node = src_node
+    new_leaves = find_tree_leaves_of_any_node(tree, M)
+    run_node = M
     num_pairs_updated = 0
-    while run_node != tree.root:
+    while run_node != RN:
         parent = tree.parent(run_node)
         current_tmrca = tree.time(parent)
         if run_node == tree.left_child(parent):
@@ -139,7 +157,7 @@ def find_edge_diff_pattern(diff, tree):
     """
 
     # build parent to child and child to parent mapping for edges_out and
-    # edges_int
+    # for edges_in
     edges_out = diff[1]
     edges_in = diff[2]
     in_cp_map = {}
@@ -167,62 +185,66 @@ def find_edge_diff_pattern(diff, tree):
     # condition 1: two-edge pattern: movement tree root
     if num_edges == 2:  # only two edges
         N = edges_in[0].parent
-        M = edges_in[0].parent
+        M = N
+        RN = N
         pat = "Pattern 1: two-edge, moving root itself"
 
     # condition 2: three-edge patterns
     elif num_edges == 3:
-        # first find N node:
         two_children_Nodes = [parent for parent in in_pc_map
                               if len(in_pc_map[parent]) == 2]
         two_children_Nodes_out = [parent for parent in out_pc_map
                                   if len(out_pc_map[parent]) == 2]
-        if len(two_children_Nodes_out) == 1:
-            R_2B = two_children_Nodes_out[0]
-        else:
-            R_2B = None
-
+        # find N node:
         Ns = [node for node in two_children_Nodes
               if node in in_cp_map or node == tree.root]
         assert(len(Ns) == 1)
         N = Ns[0]
         Pn = tree.parent(N)
 
-        # # condition 2A: N node is on the edge of the prev tree root
-        # which is larger number of N node's children of the new tree, the M
-        # node the smaller number
+        # this is specific for pattern 2B
+        if len(two_children_Nodes_out) == 1:
+            R = two_children_Nodes_out[0]
+        else:
+            R = None
+
+        # # condition 2A: N node is on the edge of the prev tree root;
+        # thus prev tree root is larger number of N node's children of the new
+        # tree, the M node the smaller number
+
         if N == tree.root:
             M = min(in_pc_map[N])
+            RN = N
             pat = "Pattern 2A: three-edge, moving to the root"
 
-        # # condition 2B: moving node just move along the original edge
-        # R node in old tree and N node in new tree have same children
-        elif N != tree.root and R_2B is not None and R_2B in out_cp_map \
-                and out_cp_map[R_2B] == in_cp_map[N]:
+        # # condition 2B: N node is along the edge of R node in old tree; N
+        # node in new tree  and R in old tree have same children
+
+        elif N != tree.root and R is not None and R in out_cp_map \
+                and out_cp_map[R] == in_cp_map[N]:
             assert(len(in_pc_map[N]) == 2)
             M = in_pc_map[N][1]
+            RN = N  # no need to update for nodes older than N, thus RN=N
             pat = "Pattern 2B: three-edge, moving along an edge"
 
         # # condition 2C: similar to four-edge pattern (only diff: moving node
         # is a child node of the root
         else:
-            B_proposal = set(out_pc_map[Pn]).intersection(set(in_pc_map[N]))
-            B_proposal = list(B_proposal)
-            if(len(B_proposal) != 1):
-                print("something is wrong with B")
-                B = -1
-            else:
-                B = B_proposal[0]
-            # M node
+            B_list = list(set(out_pc_map[Pn]).intersection(set(in_pc_map[N])))
+            assert(len(B_list) == 1)
+            B = B_list[0]
+            # M node is N's other child, B's sibling
             N_children = in_pc_map[N]
             assert(len(N_children) == 2)
             if B == N_children[0]:
                 M = N_children[1]
             else:
                 M = N_children[0]
-                # assert(B == N_children[1])
-                if B != N_children[1]:
-                    print("some things is wrong with M")
+                assert(B == N_children[1])
+            # R is the root of old tree, movement of M destroy one child;
+            # R's other child and M's sibling of the old treeis the root of new
+            # tree, RN is root of the new tree
+            RN = tree.root
             pat = "Pattern 2C: three-edge, moving a root child to an edge"
 
     # condition 3: four-edge pattern
@@ -230,17 +252,14 @@ def find_edge_diff_pattern(diff, tree):
         # N node
         two_children_Nodes = [parent for parent in in_pc_map
                               if len(in_pc_map[parent]) == 2]
-        Ns = [node for node in two_children_Nodes
-              if node in in_cp_map]
-        assert(len(Ns) == 1)
-        N = Ns[0]
+        N_list = [node for node in two_children_Nodes if node in in_cp_map]
+        assert(len(N_list) == 1)
+        N = N_list[0]
         # B node
         Pn = tree.parent(N)
-        B_proposal = set(out_pc_map[Pn]).intersection(set(in_pc_map[N]))
-        B_proposal = list(B_proposal)
-        B = B_proposal[0]
-        if(len(B_proposal) != 1):
-            print("something is wrong with B")
+        B_list = list(set(out_pc_map[Pn]).intersection(set(in_pc_map[N])))
+        assert(len(B_list) == 1)
+        B = B_list[0]
         # M node
         N_children = in_pc_map[N]
         assert(len(N_children) == 2)
@@ -248,19 +267,23 @@ def find_edge_diff_pattern(diff, tree):
             M = N_children[1]
         else:
             M = N_children[0]
-            # assert(B == N_children[1])
-            if B != N_children[1]:
-                print("some things is wrong with M")
+            assert(B == N_children[1])
+        # RN node
+        R = out_cp_map[M]  # R is parent of M in old tree
+        Rp = out_cp_map[R]
+        RN = tree.mrca(Rp, N)
         pat = "Pattern 3: four-edge, general"
 
-    return M, N, pat
+    # print("RN: {}. Is root? {}".format(RN, RN == tree.root))
+
+    return M, N, RN, pat
 
 
-def test_tmrca_update_incremental_vs_complete():
+def test_tsibd_incremental_vs_complete():
 
     # some basic options
     chrom = 1
-    bp_per_cM = 1000000,
+    bp_per_cM = 1000000
     ibd_threshold_in_bp = 2000000
 
     # simulation
@@ -274,6 +297,10 @@ def test_tmrca_update_incremental_vs_complete():
     tmrca_matrix = np.zeros(shape=(num_samples, num_samples))
     breakpos_matrix = np.zeros(shape=(num_samples, num_samples))
     breakpos_matrix_complete = np.zeros(shape=(num_samples, num_samples))
+
+    # initialize function attributes
+    update_matrices_and_output_ibd_for_sample_pair.longest = 0
+    update_matrices_and_output_ibd_for_sample_pair.num_ibd = 0
 
     # initialize the tmrca matrix from first tree
     first_tree = tree_sequence.first()
@@ -306,8 +333,8 @@ def test_tmrca_update_incremental_vs_complete():
 
         # This is to skip tree every 10k: the disadvantage is that this makes
         # the complete update and incremental update different.
-        if int(interval[0]) / 10000 == int(interval[1]) / 10000:
-            continue
+        # if int(interval[0]) / 10000 == int(interval[1]) / 10000:
+        #     continue
 
         print("tree: %d, position: %f, longest: %f, num_ibd: %f" % (
             i, interval[1],
@@ -315,7 +342,7 @@ def test_tmrca_update_incremental_vs_complete():
             update_matrices_and_output_ibd_for_sample_pair.num_ibd
         ))
 
-        M, N, pat = find_edge_diff_pattern(diff, tree)
+        M, N, RN, pat = find_edge_diff_pattern(diff, tree)
 
         # NOTE: Here are the key differences
 
@@ -328,7 +355,7 @@ def test_tmrca_update_incremental_vs_complete():
         else:
             num_pairs_updated_incremental += \
                 update_matries_due_to_new_leaves(
-                    tree, M, tmrca_matrix, breakpos_matrix,
+                    tree, M, RN, tmrca_matrix, breakpos_matrix,
                     chrom, bp_per_cM, ibd_threshold_in_bp)
 
         # 2. make an brand new matrix from the current tree (complete)
@@ -369,6 +396,11 @@ def test_tmrca_update_incremental_vs_complete():
             print_tree(tree, i)
          """
 
+    output_last_ibds_for_all_pairs(
+        tmrca_matrix, breakpos_matrix, num_samples,
+        interval[1],  # last interval
+        chrom, bp_per_cM, ibd_threshold_in_bp)
+
     print("")
     print("-----------------")
     print("sample_size", num_samples)
@@ -384,17 +416,113 @@ def test_tmrca_update_incremental_vs_complete():
     return ratio
 
 
-if __name__ == "__main__":
-    ratio_list = []
-    num_test = 1
-    for i in range(num_test):
-        ratio = test_tmrca_update_incremental_vs_complete()
-        if ratio is not None:
-            ratio_list.append(ratio)
+def test_tsibd():
 
-    print("\n ============ ")
-    print("num_test", num_test)
-    print("num valid ratios", len(ratio_list))
-    print("Ratios: ")
-    print("     mean: %g" % np.mean(np.array(ratio_list)))
-    print("     std: %g" % np.std(np.array(ratio_list)))
+    # some basic options
+    chrom = 1
+    bp_per_cM = 1000000
+    ibd_threshold_in_bp = 2000000
+
+    # simulation
+    tree_sequence = msprime.simulate(
+        sample_size=100, Ne=10000, length=30000000, recombination_rate=1e-8)
+
+    print("Done with simulation!", file=sys.stderr)
+
+    # make matrics
+    num_samples = tree_sequence.num_samples
+    tmrca_matrix = np.zeros(shape=(num_samples, num_samples))
+    breakpos_matrix = np.zeros(shape=(num_samples, num_samples))
+
+    # initialize function attributes
+    update_matrices_and_output_ibd_for_sample_pair.longest = 0
+    update_matrices_and_output_ibd_for_sample_pair.num_ibd = 0
+
+    # initialize the tmrca matrix from first tree
+    first_tree = tree_sequence.first()
+    update_tmrca_matrix_due_to_new_tree(
+        first_tree, tmrca_matrix, breakpos_matrix,
+        chrom, bp_per_cM, ibd_threshold_in_bp)
+    # print(tmrca_matrix)
+
+    # updates matrix for following trees using tree_diffs
+    trees = tree_sequence.trees()
+    diffs = tree_sequence.edge_diffs()
+
+    # skip the first tree in the for loop
+    tree = next(trees)
+    diff = next(diffs)
+
+    # num_pair_updated_coutners initialization
+    num_pairs_updated_incremental = 0
+
+    interval = None
+    for i in range(1, tree_sequence.num_trees):
+
+        # get the edge_diff and tree
+        interval = tree.interval
+        diff = next(diffs)
+        tree = next(trees)
+
+        if int(interval[0]) / 10000 == int(interval[1]) / 10000:
+            continue
+
+        print("tree: %d, position: %f, longest: %f, num_ibd: %f" % (
+            i, interval[1],
+            update_matrices_and_output_ibd_for_sample_pair.longest,
+            update_matrices_and_output_ibd_for_sample_pair.num_ibd
+        ), file=sys.stderr)
+
+        M, N, RN, pat = find_edge_diff_pattern(diff, tree)
+
+        # NOTE: Here are the key differences
+
+        # 1. update exisiting trmca_matrix (incremental)
+        if M == tree.root:
+            num_pairs_updated_incremental += \
+                update_matrices_due_to_new_ancestral_node(
+                    tree, M, tmrca_matrix, breakpos_matrix,
+                    chrom, bp_per_cM, ibd_threshold_in_bp)
+        else:
+            num_pairs_updated_incremental += \
+                update_matries_due_to_new_leaves(
+                    tree, M, RN, tmrca_matrix, breakpos_matrix,
+                    chrom, bp_per_cM, ibd_threshold_in_bp)
+
+    output_last_ibds_for_all_pairs(
+        tmrca_matrix, breakpos_matrix, num_samples,
+        interval[1],  # last interval
+        chrom, bp_per_cM, ibd_threshold_in_bp)
+
+    print("", file=sys.stderr)
+    print("-----------------", file=sys.stderr)
+    print("sample_size: %d" % num_samples, file=sys.stderr)
+    print("num_pairs_updated_incremental: %d" % num_pairs_updated_incremental,
+          file=sys.stderr)
+
+
+if __name__ == "__main__":
+
+    """
+    comparing incremental vs complete
+    """
+
+    # ratio_list = []
+    # num_test = 1
+    # for i in range(num_test):
+    #     ratio = test_tsibd_incremental_vs_complete()
+
+    #     if ratio is not None:
+    #         ratio_list.append(ratio)
+
+    # print("\n ============ ")
+    # print("num_test", num_test)
+    # print("num valid ratios", len(ratio_list))
+    # print("Ratios: ")
+    # print("     mean: %g" % np.mean(np.array(ratio_list)))
+    # print("     std: %g" % np.std(np.array(ratio_list)))
+
+    """
+    just run incremental
+    """
+    test_tsibd()
