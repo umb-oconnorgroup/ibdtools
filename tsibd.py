@@ -21,10 +21,6 @@ def update_matrices_and_output_ibd_for_sample_pair(
     else:
         row, col = id1, id2
 
-    """
-    TODO: codes deal with special case like the last tree. last tree all should
-    breaks at the end of the interval, but current implementation igored them..
-    """
     last_tmrca = tmrca_matrix[row, col]
     tmrca_matrix[row, col] = int(current_tmrca)
     last_break_pos = breakpos_matrix[row, col]
