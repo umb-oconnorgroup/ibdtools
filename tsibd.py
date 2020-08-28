@@ -279,18 +279,10 @@ def find_edge_diff_pattern(diff, tree):
     return M, N, RN, pat
 
 
-def test_tsibd_incremental_vs_complete():
+def test_tsibd_incremental_vs_complete(
+        tree_sequence, chrom=1, bp_per_cM=1000000,
+        ibd_threshold_in_bp=2000000):
 
-    # some basic options
-    chrom = 1
-    bp_per_cM = 1000000
-    ibd_threshold_in_bp = 2000000
-
-    # simulation
-    tree_sequence = msprime.simulate(
-        sample_size=100, Ne=10000, length=30000000, recombination_rate=1e-8)
-
-    print("Done with simulation!")
 
     # make matrics
     num_samples = tree_sequence.num_samples
@@ -416,18 +408,8 @@ def test_tsibd_incremental_vs_complete():
     return ratio
 
 
-def test_tsibd():
-
-    # some basic options
-    chrom = 1
-    bp_per_cM = 1000000
-    ibd_threshold_in_bp = 2000000
-
-    # simulation
-    tree_sequence = msprime.simulate(
-        sample_size=100, Ne=10000, length=30000000, recombination_rate=1e-8)
-
-    print("Done with simulation!", file=sys.stderr)
+def test_tsibd(tree_sequences,
+               chrom=1, bp_per_cM=1000000, ibd_threshold_in_bp=2000000):
 
     # make matrics
     num_samples = tree_sequence.num_samples
@@ -510,7 +492,14 @@ if __name__ == "__main__":
     # ratio_list = []
     # num_test = 1
     # for i in range(num_test):
-    #     ratio = test_tsibd_incremental_vs_complete()
+    #     # simulation
+    #     tree_sequence = msprime.simulate(
+    #         sample_size=100, Ne=10000, length=30000000,
+    #         recombination_rate=1e-8)
+
+    #     print("Done with simulation!")
+    #     ratio = test_tsibd_incremental_vs_complete(tree_sequence,
+    #           chrom=1, bp_per_cM=1000000, ibd_threshold_in_bp=2000000)
 
     #     if ratio is not None:
     #         ratio_list.append(ratio)
@@ -525,4 +514,11 @@ if __name__ == "__main__":
     """
     just run incremental
     """
-    test_tsibd()
+    # simulation
+    tree_sequence = msprime.simulate(
+        sample_size=100, Ne=10000, length=30000000, recombination_rate=1e-8)
+
+    print("Done with simulation!", file=sys.stderr)
+
+    test_tsibd(tree_sequence,
+               chrom=1, bp_per_cM=1000000, ibd_threshold_in_bp=2000000)
