@@ -178,12 +178,13 @@ def find_edge_diff_pattern(diff, tree):
     num_edges = len(diff[1])
 
     # ========== Find the N and M node ===============
-    # condition 1: two-edge pattern: movement tree root
+    # condition 1: two-edge pattern: elevating root,
+    # can also explained as moving node breaks into edge of the root
     if num_edges == 2:  # only two edges
         N = edges_in[0].parent
-        M = N
+        M = in_pc_map[N][0]  # M is any child of N
         RN = N
-        pat = "Pattern 1: two-edge, moving root itself"
+        pat = "Pattern 1: two-edge, elevating root"
 
     # condition 2: three-edge patterns
     elif num_edges == 3:
@@ -214,32 +215,33 @@ def find_edge_diff_pattern(diff, tree):
             pat = "Pattern 2A: three-edge, moving to the root"
 
         # # condition 2B: N node is along the edge of R node in old tree; N
-        # node in new tree  and R in old tree have same children
-
-        elif N != tree.root and R is not None and R in out_cp_map \
+        # node in new tree  and R in old tree have same children.
+        # the following logicials are 1)N is root of new tree 2) R has two
+        # children in edges_out 3) R has a parent in edges_out 4) N share
+        # children
+        elif N != tree.root \
+                and R is not None \
+                and R in out_cp_map \
                 and out_cp_map[R] == in_cp_map[N]:
             assert(len(in_pc_map[N]) == 2)
-            M = in_pc_map[N][1]
+            M = in_pc_map[N][0]  # M is any child of N
             RN = N  # no need to update for nodes older than N, thus RN=N
-            pat = "Pattern 2B: three-edge, moving along an edge"
+            pat = "Pattern 2B: three-edge, elevating along an edge"
 
         # # condition 2C: similar to four-edge pattern (only diff: moving node
         # is a child node of the root
         else:
-            B_list = list(set(out_pc_map[Pn]).intersection(set(in_pc_map[N])))
-            assert(len(B_list) == 1)
-            B = B_list[0]
+            B_set = list(set(out_pc_map[Pn]).intersection(set(in_pc_map[N])))
+            assert(len(B_set) == 1)
+
             # M node is N's other child, B's sibling
-            N_children = in_pc_map[N]
-            assert(len(N_children) == 2)
-            if B == N_children[0]:
-                M = N_children[1]
-            else:
-                M = N_children[0]
-                assert(B == N_children[1])
-            # R is the root of old tree, movement of M destroy one child;
-            # R's other child and M's sibling of the old treeis the root of new
-            # tree, RN is root of the new tree
+            N_children = set(in_pc_map[N])
+            assert(len(N_children.difference(B_set)) == 1)
+            M = N_children.difference(B_set).pop()
+
+            # R is the root of old tree, movement of M make R'sone child
+            # disapear; R's other child , also M's sibling of the old tree is
+            # the root of new tree. RN is root of the new tree
             RN = tree.root
             pat = "Pattern 2C: three-edge, moving a root child to an edge"
 
@@ -251,19 +253,14 @@ def find_edge_diff_pattern(diff, tree):
         N_list = [node for node in two_children_Nodes if node in in_cp_map]
         assert(len(N_list) == 1)
         N = N_list[0]
-        # B node
+
+        # M node is N's other child, B's sibling
         Pn = tree.parent(N)
-        B_list = list(set(out_pc_map[Pn]).intersection(set(in_pc_map[N])))
-        assert(len(B_list) == 1)
-        B = B_list[0]
-        # M node
-        N_children = in_pc_map[N]
-        assert(len(N_children) == 2)
-        if B == N_children[0]:
-            M = N_children[1]
-        else:
-            M = N_children[0]
-            assert(B == N_children[1])
+        B_set = list(set(out_pc_map[Pn]).intersection(set(in_pc_map[N])))
+        assert(len(B_set) == 1)
+        N_children = set(in_pc_map[N])
+        assert(len(N_children.difference(B_set)) == 1)
+        M = N_children.difference(B_set).pop()
         # RN node
         R = out_cp_map[M]  # R is parent of M in old tree
         Rp = out_cp_map[R]
@@ -278,7 +275,6 @@ def find_edge_diff_pattern(diff, tree):
 def test_tsibd_incremental_vs_complete(
         tree_sequence, chrom=1, bp_per_cM=1000000,
         ibd_threshold_in_bp=2000000):
-
 
     # make matrics
     num_samples = tree_sequence.num_samples
@@ -335,16 +331,10 @@ def test_tsibd_incremental_vs_complete(
         # NOTE: Here are the key differences
 
         # 1. update exisiting trmca_matrix (incremental)
-        if M == tree.root:
-            num_pairs_updated_incremental += \
-                update_matrices_due_to_new_ancestral_node(
-                    tree, M, tmrca_matrix, breakpos_matrix,
-                    chrom, bp_per_cM, ibd_threshold_in_bp)
-        else:
-            num_pairs_updated_incremental += \
-                update_matries_due_to_new_leaves(
-                    tree, M, RN, tmrca_matrix, breakpos_matrix,
-                    chrom, bp_per_cM, ibd_threshold_in_bp)
+        num_pairs_updated_incremental += \
+            update_matries_due_to_new_leaves(
+                tree, M, RN, tmrca_matrix, breakpos_matrix,
+                chrom, bp_per_cM, ibd_threshold_in_bp)
 
         # 2. make an brand new matrix from the current tree (complete)
         tmrca_matrix_temp = np.zeros(shape=(num_samples, num_samples))
@@ -453,19 +443,10 @@ def test_tsibd(tree_sequences,
 
         M, N, RN, pat = find_edge_diff_pattern(diff, tree)
 
-        # NOTE: Here are the key differences
-
-        # 1. update exisiting trmca_matrix (incremental)
-        if M == tree.root:
-            num_pairs_updated_incremental += \
-                update_matrices_due_to_new_ancestral_node(
-                    tree, M, tmrca_matrix, breakpos_matrix,
-                    chrom, bp_per_cM, ibd_threshold_in_bp)
-        else:
-            num_pairs_updated_incremental += \
-                update_matries_due_to_new_leaves(
-                    tree, M, RN, tmrca_matrix, breakpos_matrix,
-                    chrom, bp_per_cM, ibd_threshold_in_bp)
+        num_pairs_updated_incremental += \
+            update_matries_due_to_new_leaves(
+                tree, M, RN, tmrca_matrix, breakpos_matrix,
+                chrom, bp_per_cM, ibd_threshold_in_bp)
 
     output_last_ibds_for_all_pairs(
         tmrca_matrix, breakpos_matrix, num_samples,
