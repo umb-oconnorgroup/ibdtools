@@ -186,11 +186,13 @@ void maps_read_map_file(maps_t *self, const char *filename) {
   // get actual positions
   fseek(fp, 0, SEEK_SET);
   while (getline(&p, &buff_size, fp) > 0 && *p != '\n') {
-    tok = strtok(p, " \n");    // chr
-    tok = strtok(NULL, " \n"); // snpid
-    tok = strtok(NULL, " \n"); // cM, double
+    tok = strtok(p, " \t\n");    // chr
+    tok = strtok(NULL, " \t\n"); // snpid
+    tok = strtok(NULL, " \t\n"); // cM, double
+    assert(tok != NULL);
     cM[nmemb] = strtod(tok, NULL);
-    tok = strtok(NULL, " \n"); // bp, long
+    tok = strtok(NULL, " \t\n"); // bp, long
+    assert(tok != NULL);
     bp[nmemb] = strtol(tok, NULL, 10);
     nmemb++;
   }
@@ -224,14 +226,14 @@ void maps_update_cM_from_map(maps_t *self, maps_t *ref_map) {
                            (bp_ref[nmemb_ref - 1] - bp_ref[nmemb_ref - 2]);
 
   for (ind = 0; ind < nmemb; ind++) {
-    if (bp[ind] < bp_ref[0]) {
+    if (bp[ind] <= bp_ref[0]) {
       /* smaller than first position in ref map */
       double y0 = cM_ref[0];
       size_t x0 = bp_ref[0];
       size_t x = bp[ind];
       double y = y0 - left_ext_slope * (x0 - x);
       cM[ind] = y;
-    } else if (bp[ind] > bp_ref[nmemb_ref - 1]) {
+    } else if (bp[ind] >= bp_ref[nmemb_ref - 1]) {
       /* greater than last position in ref map */
       double y_max = cM_ref[nmemb_ref - 1]; // fixed a bug here
       size_t x_max = bp_ref[nmemb_ref - 1];
@@ -242,7 +244,7 @@ void maps_update_cM_from_map(maps_t *self, maps_t *ref_map) {
     } else {
       /* between two position in a map */
       // find the range
-      while (bp_ref[ind_ref] < bp[ind])
+      while (bp_ref[ind_ref] <= bp[ind])
         ind_ref++;
       double y2 = cM_ref[ind_ref];
       double y1 = cM_ref[ind_ref - 1];
@@ -442,6 +444,9 @@ void ibd_merge(ibd_t *self) {
     if (last_end >= this_beg)
       need_merge = 1;
     // close enough
+    //  There could be a problem for true ibd. True ibd coordinate is from tree interval length
+    //  However, the vcf position is calculated from the scaled pos (0,1) so the position of
+    //  true ibd does not match to that found in the vcf most likely due to precision issue.
     else {
       size_t *p1_bp = (size_t *)bsearch(&last_end, maps->bp, maps->nmemb,
                                         sizeof(*maps->bp), size_cmp);
@@ -551,6 +556,7 @@ int main(int argc, char *argv[]) {
     exit(-1);
   }
 
+  
   ibd_t ibd;
   ibd_read(&ibd, argv[1], argv[2], argv[3], "stdin");
   ibd_merge(&ibd);
