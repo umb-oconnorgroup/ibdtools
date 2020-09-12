@@ -521,8 +521,8 @@ void ibd_print_merged_ibd(ibd_t *self) {
             self->chr, lines[i].start, lines[i].end, cM_start, cM_end );
     }
 
-    fprintf(stdout, "%s\t1\t%s\t1\t%d\t%ld\t%ld\t%lf\t%d\n", pName1, pName2,
-            self->chr, lines[i].start, lines[i].end, cM_end - cM_start, 3);
+    fprintf(stdout, "%s\t1\t%s\t1\t%d\t%ld\t%ld\t%d\t%lf\n", pName1, pName2,
+            self->chr, lines[i].start, lines[i].end, 3, cM_end - cM_start);
   }
 }
 

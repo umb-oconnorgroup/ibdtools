@@ -925,13 +925,13 @@ main(int argc, char *argv[])
     else if (argc == 2) {
         IBDTOTAL_init(&ibdtotal, argv[1]); // argv[1] = samples_list file
 
-        // parse lines and save it cM, sample pairs into arrays
+        // parse lines and save it to cM, sample pairs into arrays
         while (getline(&p, &size, stdin) > 0) {
             lineCount++;
             // if(lineCount % 10000 == 0) fprintf(stderr, "line: %ld\n", lineCount);
             token = strtok(p, "\t");
             colCount = 0;
-            while (colCount <= 8) {
+            while (colCount <= 9) {
                 colCount++;
                 if (colCount == 1)
                     s1 = token;
@@ -939,7 +939,7 @@ main(int argc, char *argv[])
                     s2 = token;
                 else if (colCount == 5)
                     chr = atoi(token);
-                else if (colCount == 8)
+                else if (colCount == 9)  // update cM to 9th col, score to be 8th col
                     cM = strtod(token, NULL);
                 else {
                 };
