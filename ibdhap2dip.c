@@ -10,7 +10,7 @@ int main(int argc, char * argv[])
 
 	if(argc != 2)
 	{
-		fprintf(stderr, "\n\n Usage: cat xxx.ibd | ./ibdhap2dip <nsam> > xxx_dip.ibd\n\n"
+		fprintf(stderr, "\n\n Usage: cat xxx.ibd | ./ibdhap2dip <nsam>   1>xxx_dip.ibd 2>xxx_dip.hbd\n\n"
 				"\n input ibd should have at least 9 columns, 8th col=score, 9th col= ibd length\n");
 		exit(0);
 	}
@@ -55,8 +55,13 @@ int main(int argc, char * argv[])
 			id2 = temp;
 		}
 
-		fprintf(stdout, "\%d\t%d\t%d\t%d\t%d\t%ld\t%ld\t%g\t%g\t\n",
+		if(id1 == id2)
+			fprintf(stderr, "\%d\t%d\t%d\t%d\t%d\t%ld\t%ld\t%g\t%g\t\n",
 				id1, hap1, id2, hap2, chr, start, end, score, cM);
+		else
+			fprintf(stdout, "\%d\t%d\t%d\t%d\t%d\t%ld\t%ld\t%g\t%g\t\n",
+				id1, hap1, id2, hap2, chr, start, end, score, cM);
+
 	}
 
 	return 0;
