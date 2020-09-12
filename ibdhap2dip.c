@@ -10,7 +10,8 @@ int main(int argc, char * argv[])
 
 	if(argc != 2)
 	{
-		fprintf(stderr, "\n\n Usage: ./ibdhap2dip <nsam>\n\n");
+		fprintf(stderr, "\n\n Usage: cat xxx.ibd | ./ibdhap2dip <nsam> > xxx_dip.ibd\n\n"
+				"\n input ibd should have at least 9 columns, 8th col=score, 9th col= ibd length\n");
 		exit(0);
 	}
 	int nsam = atoi(argv[1]);
@@ -32,6 +33,10 @@ int main(int argc, char * argv[])
 		tok = strtok(NULL, " \t\n");
 		size_t end = strtol(tok, NULL, 10);
 		tok = strtok(NULL, " \t\n");
+		assert(tok != NULL);
+		double score = strtod(tok, NULL);
+		tok = strtok(NULL, " \t\n");
+		assert(tok != NULL);
 		double cM = strtod(tok, NULL);
 
 		if(id1 >= nsam) {	
@@ -50,8 +55,8 @@ int main(int argc, char * argv[])
 			id2 = temp;
 		}
 
-		fprintf(stdout, "\%d\t%d\t%d\t%d\t%d\t%ld\t%ld\t%g\t\n",
-				id1, hap1, id2, hap2, chr, start, end, cM);
+		fprintf(stdout, "\%d\t%d\t%d\t%d\t%d\t%ld\t%ld\t%g\t%g\t\n",
+				id1, hap1, id2, hap2, chr, start, end, score, cM);
 	}
 
 	return 0;
