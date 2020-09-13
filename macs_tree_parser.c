@@ -270,6 +270,23 @@ calculate_tmrca_and_output_ibd()
     }
 }
 
+void  output_ibd_at_right_end()
+{
+	long s, e, ibdLength;
+	e = segEnd;
+	for(int id1 = 1; id1 < nsam; id1++){
+		for (int id2=0; id2 < id1; id2++){
+                    s = ibdStartMatrix[id1 * nsam + id2];
+		    ibdLength = e - s;
+                    if (ibdLength >= min_bp)
+                        fprintf(f_ibd, "%d\t1\t%d\t1\t%d\t%ld\t%ld\t%0.4f\t3\t%lf\n",
+                            id1, id2, chrom, s, e, 1.0 * ibdLength / bp_per_cm,
+                            ibdTmrcaMatrix[id1 * nsam + id2]);
+		}
+	}
+
+}
+
 /*
  * Main function:
  *
@@ -301,7 +318,10 @@ main(int argc, char *argv[])
             "		                                           suggestions: "
             "human->10000, pf->150; \n"
             "	hom_het:                                           0 for heterozygous "
-            "vcf; 1 for homozygous \n\n");
+            "vcf; 1 for homozygous \n\n"
+	    "\n\n Example:\n"
+	    "macs 50 10000000 -t 0.0004 -r 0.0004 -h 1000 -T 2>/dev/null"
+	    " | macs_tree_parser 1 1000000 40000 10000 0\n");
         return -1;
     }
     chrom = atoi(argv[1]);
@@ -476,6 +496,8 @@ main(int argc, char *argv[])
         // reset line max size for next lines
         lineSize = max_size;
     }
+    // after the loop out ibd segment reach the end of the chromosomes
+    output_ibd_at_right_end();
     fclose(f_ibd);
     fclose(f_map);
     fclose(f_log);
