@@ -293,6 +293,9 @@ typedef struct {
   int chr;
   samples_t samples;
   maps_t maps;
+
+  int merge_max_num_snp;
+  double merge_max_cM;
 } ibd_t;
 
 int ibdrec_cmp(const void *r1, const void *r2) {
@@ -455,8 +458,8 @@ void ibd_merge(ibd_t *self) {
                                         sizeof(*maps->bp), size_cmp);
       assert(p2_bp != NULL);
       /*NOTE: these are the mering criteria */
-      if (p2_bp - p1_bp <= 1 &&
-          maps->cM[p2_bp - maps->bp] - maps->cM[p1_bp - maps->bp] <= 0.6)
+      if (p2_bp - p1_bp <= self->merge_max_num_snp &&
+          maps->cM[p2_bp - maps->bp] - maps->cM[p1_bp - maps->bp] <= self->merge_max_cM)
         need_merge = 1;
       else
         need_merge = 0;
@@ -549,15 +552,22 @@ int main(int argc, char *argv[]) {
   // test_maps_update_cM_from_map();
   // test_ibd_read_from_file();
 
+  ibd_t ibd;
   char *usage = " zcat xxx.ibd.gz | ./ibdmerg <sample_list.txt> "
-                "<bp_positions_list> <plink.map>";
+                "<bp_positions_list> <plink.map> [<merge_max_num_snp> <merge_max_cM>]";
   if (argc < 4) {
     fprintf(stderr, "\n%s\n", usage);
     exit(-1);
   }
 
-  
-  ibd_t ibd;
+  if (argc == 6) {
+      ibd.merge_max_num_snp = atoi(argv[4]);
+      ibd.merge_max_cM = strtod(argv[5], NULL);
+  } else {
+      ibd.merge_max_num_snp = 1;
+      ibd.merge_max_cM = 0.6;
+  }
+
   ibd_read(&ibd, argv[1], argv[2], argv[3], "stdin");
   ibd_merge(&ibd);
   ibd_print_merged_ibd(&ibd);
