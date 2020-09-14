@@ -917,7 +917,12 @@ main(int argc, char *argv[])
     int chr;
 
     if (argc != 2 && argc != 7) {
-        fprintf(stderr, "\nUsage: ./ibdtotal <samples_list file> [<matrix_file> "
+        fprintf(stderr, 
+			"\nUsage 1: read ibd from stdin, stdout = ibdtotal," 
+			" also save binary matrix to tmp_ibd.dat\n\n"
+			" 	cat xxx.ibd | ./ibdtotal <samples_list file>  >ibd_total.txt\n\n"
+			"\nUsage 2: read from binary matrix file\n\n"
+			"	./ibdtotal <samples_list file> [<matrix_file> "
                         "<samples_orders_file> <meta_table> <scol> <lcol>]\n\n");
         exit(1);
     }
