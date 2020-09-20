@@ -26,18 +26,9 @@ int main(int argc, char * argv[])
 		int id2 = atoi(tok);
 		tok = strtok(NULL, " \t\n");
 		int hap2 = atoi(tok);
-		tok = strtok(NULL, " \t\n");
-		int chr = atoi(tok);
-		tok = strtok(NULL, " \t\n");
-		size_t start = strtol(tok, NULL, 10);
-		tok = strtok(NULL, " \t\n");
-		size_t end = strtol(tok, NULL, 10);
-		tok = strtok(NULL, " \t\n");
-		assert(tok != NULL);
-		double score = strtod(tok, NULL);
-		tok = strtok(NULL, " \t\n");
-		assert(tok != NULL);
-		double cM = strtod(tok, NULL);
+		/* let tok point to chr*/
+		while(*tok != '\0') tok++;
+		tok++;
 
 		if(id1 >= nsam) {	
 			id1 -= nsam;
@@ -56,11 +47,11 @@ int main(int argc, char * argv[])
 		}
 
 		if(id1 == id2)
-			fprintf(stderr, "\%d\t%d\t%d\t%d\t%d\t%ld\t%ld\t%g\t%g\t\n",
-				id1, hap1, id2, hap2, chr, start, end, score, cM);
+			fprintf(stderr, "\%d\t%d\t%d\t%d\t%s",
+				id1, hap1, id2, hap2, tok);
 		else
-			fprintf(stdout, "\%d\t%d\t%d\t%d\t%d\t%ld\t%ld\t%g\t%g\t\n",
-				id1, hap1, id2, hap2, chr, start, end, score, cM);
+			fprintf(stdout, "\%d\t%d\t%d\t%d\t%s",
+				id1, hap1, id2, hap2, tok);
 
 	}
 
