@@ -70,17 +70,29 @@ mscmd_parse(mscmd_t *self, char *mscmd)
         if (strcmp(tok, "ms") == 0) {
             tok = strtok(NULL, " \n");
             assert(tok != NULL);
+            if (strcmp(tok, "-threads") == 0) {
+                /* do this to skip the threads */
+                tok = strtok(NULL, " \n");
+                assert(tok != NULL);
+            	tok = strtok(NULL, " \n");
+            	assert(tok != NULL);
+            }
             self->nsam = atoi(tok);
 
             tok = strtok(NULL, " \n");
             assert(tok != NULL);
             self->nrep = atoi(tok);
-        } else if (strcmp(tok, "-t") == 0) {
+        } else if (strcmp(tok, "-threads") == 0) {
+	    /* do this to skip the threads */
+            tok = strtok(NULL, " \n");
+            assert(tok != NULL);
+        } else if(strcmp(tok, "-t") ==0 ) {
             tok = strtok(NULL, " \n");
             assert(tok != NULL);
             self->theta = strtod(tok, NULL);
             assert(self->theta > 0);
-        } else if (strcmp(tok, "-r") == 0) {
+
+	} else if (strcmp(tok, "-r") == 0) {
             tok = strtok(NULL, " \n");
             assert(tok != NULL);
             self->rho = strtod(tok, NULL);
@@ -284,6 +296,7 @@ main(int argc, char *argv[])
     is_het = atoi(argv[2]);
     msfile_alloc(&msfile);
     msmeta_set_bp_per_cM(msfile.meta, bp_per_cM);
+    //msfile_parser(&msfile, fp);
     msfile_parser(&msfile, stdin);
     msfile_print_vcf(&msfile, stdout, is_het, stderr);
     msfile_free(&msfile);
