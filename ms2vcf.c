@@ -188,12 +188,14 @@ msfile_parser(msfile_t *self, FILE *msfile)
                 assert(tok != NULL);
                 cur_chr->positions[i] = (long) (strtod(tok, NULL) * cur_chr->chr_length);
                 // to avoid collision
-                if (i >= 1 && cur_chr->positions[i] <= cur_chr->positions[i - 1]) {
-                    cur_chr->positions[i] = cur_chr->positions[i - 1] + 1;
+                if (i >= 1) {
+                    if (cur_chr->positions[i] <= cur_chr->positions[i - 1]) {
+                        cur_chr->positions[i] = cur_chr->positions[i - 1] + 1;
+                    }
+                    assert(cur_chr->positions[i] > 0);
+                    tok = strtok(NULL, " ");
                 }
-                assert(cur_chr->positions[i] > 0);
-                tok = strtok(NULL, " ");
-            }
+	    }
         }
         // need to distinguish allele from the random number line
         else if ((*linePtr == '0' || *linePtr == '1') && cur_chr != NULL) {
