@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <pthread.h>
 #include <time.h>
+#include <unistd.h>
 
 typedef struct {
     int *data;
@@ -109,6 +110,26 @@ vectord_add_element(vectord_t *self, double value)
     }
     self->size += 1;
     self->data[self->size - 1] = value;
+}
+
+void
+vectord_fprintf(vectord_t *self, FILE *fp)
+{
+	assert(fp != NULL);
+	for(size_t i = 0; i < self->size; i++) { 
+		fprintf(fp, "%ld\t%g\n", i, self->data[i]);
+	}
+}
+
+void
+vectord_fprintf_range(vectord_t *self, FILE *fp, size_t start, size_t end)
+{
+	assert(fp != NULL);
+	assert(start <= end);
+	assert(end < self->size);
+	for(size_t i = start; i <= end; i++) { 
+		fprintf(fp, "%ld\t%g\n", i, self->data[i]);
+	}
 }
 
 typedef struct {
@@ -268,7 +289,7 @@ ibdqc_thread_func(void *selfp)
                    * ibdqc_calc_prob_ibd_due_to_g(
                        self, l, g, self->ibd_num_ends.data[i]);
         }
-        printf("g = %d, total = %g\n", g, self->total_ibd_due_to_tmrca.data[g]);
+        fprintf(stderr, "g = %d, total = %g\n", g, self->total_ibd_due_to_tmrca.data[g]);
     }
 }
 
@@ -378,9 +399,13 @@ test_read_ibd_chrlen_from_file(int argc, char *argv[])
 
     // start time:
     time(&t);
-    fprintf(stdout, "Start time: %s",  ctime(&t));
+    fprintf(stderr, "Start time: %s",  ctime(&t));
 
-    ibdqc_alloc(&qc, 300, 2, 10000, 6);
+    // get number of core available
+    long num_processors = sysconf(_SC_NPROCESSORS_ONLN);
+    fprintf(stderr, "num_processors: %ld\n", num_processors);
+
+    ibdqc_alloc(&qc, 300, 2, 10000, num_processors);
 
     fp_chr_length = fopen(argv[1], "r");
     assert(fp_chr_length != NULL);
@@ -395,9 +420,11 @@ test_read_ibd_chrlen_from_file(int argc, char *argv[])
 
     ibdqc_run_multiple_threads(&qc);
 
+    vectord_fprintf_range(&qc.total_ibd_due_to_tmrca, stdout, 3, 100);
+
     // end time:
     time(&t);
-    fprintf(stdout, "End time: %s",  ctime(&t));
+    fprintf(stderr, "End time: %s",  ctime(&t));
 
     ibdqc_free(&qc);
 }
