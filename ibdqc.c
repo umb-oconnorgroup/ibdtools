@@ -151,35 +151,71 @@ typedef struct {
     pthread_t *threads;
     long running_id;
     long last_id;
-    void *(*thread_func)(void *);
+    long step;
+    void *(*job_func)(void *, long);
+    void *parent_void;
 } tpool_t;
 
 void
-tpool_alloc(tpool_t *self, int num_threads)
+tpool_alloc(tpool_t *self, void* parent_void,  int num_threads)
 {
     if (num_threads < 1)
         num_threads = 1;
     self->num_threads = num_threads;
     self->threads = malloc(sizeof(*self->threads) * num_threads);
+    self->parent_void = parent_void;
     assert(self->threads != NULL);
 }
 
-void
-tpool_run(tpool_t *self, long thread_init_job_id, long thread_last_job_id,
-    void *(*thread_func)(void *), void *param)
+// tpool_run call tpool_thread_func, and tpool_thread_func call parent job_func.
+static inline void *
+tpool_thread_func (void * self_void) 
 {
-    self->thread_func = thread_func;
+    tpool_t *self = (tpool_t *) self_void;
+    long start_job_id, cur_job_id;
+
+    while (1) {
+        // get starting job id
+        pthread_mutex_lock(&self->mutex);
+        start_job_id = self->running_id;
+        if (start_job_id < self->last_id) {
+            pthread_mutex_unlock(&self->mutex);
+            return NULL;
+        }
+        self->running_id -= self->step;
+        pthread_mutex_unlock(&self->mutex);
+
+        // do the jobs: each thread do `step` jobs per batch
+        for (long i = 0; i < self->step; i++) { 
+		cur_job_id = start_job_id - i ;
+		if (cur_job_id < self->last_id) {
+			break;
+		}
+	 	self->job_func(self->parent_void, cur_job_id);
+        }
+    }
+    return NULL;
+}
+
+void
+tpool_run(tpool_t *self, long thread_init_job_id, long thread_last_job_id, 
+	long step, void *(*job_func)(void *, long))
+{
+    self->job_func = job_func;
     self->running_id = thread_init_job_id;
     self->last_id = thread_last_job_id;
+    self->step = step;
 
-    fprintf(stderr, "num_thread: %d\n", self->num_threads);
+    // fprintf(stderr, "called: tpool_run\n");
+    // fprintf(stderr, "num_thread: %d\n", self->num_threads);
     for (int i = 0; i < self->num_threads; i++) {
-        pthread_create(self->threads + i, NULL, thread_func, (void *) param);
+        pthread_create(self->threads + i, NULL, tpool_thread_func, (void *) self);
     }
     for (int i = 0; i < self->num_threads; i++) {
         pthread_join(self->threads[i], NULL);
     }
 }
+
 
 void
 tpool_free(tpool_t *self)
@@ -207,8 +243,8 @@ typedef struct {
     vint_t chr_lens;
     size_t chr_end_range;
     // constants
-    unsigned int g_star;
-    unsigned int g_max;
+    int g_star;
+    int g_max;
     // multithreads
     tpool_t tpool;
     // results
@@ -238,7 +274,7 @@ ibdqc_alloc(
     vdouble_alloc(&self->ibd_consts, 0);
     vint_alloc(&self->chr_lens, 0);
 
-    tpool_alloc(&self->tpool, num_threads);
+    tpool_alloc(&self->tpool, (void *)self,  num_threads);
 }
 
 void
@@ -257,13 +293,13 @@ ibdqc_free(ibdqc_t *self)
 // calc gamma(N, l)
 // run after NE is set and IBD length and ends are determined
 void *
-ibdqc_thread_func_calc_prob_consts(void *self_void)
+ibdqc_job_func_calc_prob_consts(void *self_void, long job_id)
 {
     /* variables */
     long ibd_index;
     double sum, prod, tmp, l;
     int num_ends;
-    long job_id;
+    // fprintf(stderr, "called: ibdqc_job_func_calc_prob_consts\n");
 
     /* parameters or constant */
     ibdqc_t *self = (ibdqc_t *) self_void;
@@ -275,60 +311,45 @@ ibdqc_thread_func_calc_prob_consts(void *self_void)
     double beta = 1 - 0.5 / N[G];
     int step = 1000;
 
-    while (1) {
-        // get job id
-        pthread_mutex_lock(&self->tpool.mutex);
-        job_id = self->tpool.running_id;
-        if (job_id < self->tpool.last_id) {
-            pthread_mutex_unlock(&self->tpool.mutex);
-            return NULL;
+    ibd_index = job_id;
+    // do the job: each job do `step` loops
+    l = self->ibd_cM.data[ibd_index];
+    num_ends = self->ibd_num_ends.data[ibd_index];
+    alpha = l / 50.0;
+
+    /* calc const_gamma */
+    sum = 0;
+    for (int g1 = g_star; g1 <= G; g1++) {
+        prod = 1;
+        for (int i = 0; i < num_ends; i++) {
+            prod *= g1 / 50.0;
         }
-        self->tpool.running_id -= step;
-        pthread_mutex_unlock(&self->tpool.mutex);
-
-        // do the job: each job do `step` loops
-        for (ibd_index = job_id;
-             ibd_index > job_id - step && ibd_index >= self->tpool.last_id;
-             ibd_index--) {
-            l = self->ibd_cM.data[ibd_index];
-            num_ends = self->ibd_num_ends.data[ibd_index];
-            alpha = l / 50.0;
-
-            /* calc const_gamma */
-            sum = 0;
-            for (int g1 = g_star; g1 <= G; g1++) {
-                prod = 1;
-                for (int i = 0; i < num_ends; i++) {
-                    prod *= g1 / 50.0;
-                }
-                prod *= exp(-0.02 * l * g1);
-                for (int g2 = g_star; g2 < g1; g2++) {
-                    prod *= 1 - 0.5 / N[g2];
-                }
-                prod *= 0.5 / N[g1];
-                sum += prod;
-            }
-
-            prod = 1;
-            for (int g1 = g_star; g1 <= G; g1++) {
-                prod *= 1 - 0.5 / N[g1];
-            }
-            prod *= (1 - beta) * exp(-alpha * (G + 1)) / 2500;
-            tmp = 1 - beta * exp(-alpha);
-            if (num_ends == 0) {
-                prod *= G * G / tmp + (2 * G - 1) / tmp / tmp + 2 / tmp / tmp / tmp;
-            } else if (num_ends == 1) {
-                prod *= G / tmp + 1 / tmp / tmp;
-            } else {
-                // if num_ends_reached == 2) prod = prod * 1
-            }
-            sum += prod;
-
-            self->ibd_consts.data[ibd_index] = sum;
-
-            // fprintf(stderr, "l = %g, num_ends = %d, gamma = %g\n", l,  num_ends, sum);
+        prod *= exp(-0.02 * l * g1);
+        for (int g2 = g_star; g2 < g1; g2++) {
+            prod *= 1 - 0.5 / N[g2];
         }
+        prod *= 0.5 / N[g1];
+        sum += prod;
     }
+
+    prod = 1;
+    for (int g1 = g_star; g1 <= G; g1++) {
+        prod *= 1 - 0.5 / N[g1];
+    }
+    prod *= (1 - beta) * exp(-alpha * (G + 1)) / 2500;
+    tmp = 1 - beta * exp(-alpha);
+    if (num_ends == 0) {
+        prod *= G * G / tmp + (2 * G - 1) / tmp / tmp + 2 / tmp / tmp / tmp;
+    } else if (num_ends == 1) {
+        prod *= G / tmp + 1 / tmp / tmp;
+    } else {
+        // if num_ends_reached == 2) prod = prod * 1
+    }
+    sum += prod;
+
+    self->ibd_consts.data[ibd_index] = sum;
+
+    // fprintf(stderr, "l = %g, num_ends = %d, gamma = %g\n", l,  num_ends, sum);
     return NULL;
 }
 
@@ -368,33 +389,20 @@ ibdqc_calc_prob_ibd_due_to_g(
 }
 
 void *
-ibdqc_thread_func_calc_total_ibd_due_to_g(void *selfp)
+ibdqc_job_func_calc_total_ibd_due_to_g(void *self_void, long job_id)
 {
-    ibdqc_t *self = (ibdqc_t *) selfp;
-    int g = -1;
+    ibdqc_t *self = (ibdqc_t *) self_void;
+    int g = job_id;
 
-    while (1) {
-        pthread_mutex_lock(&self->tpool.mutex);
-        g = self->tpool.running_id;
-        if (g < self->tpool.last_id) {
-            pthread_mutex_unlock(&self->tpool.mutex);
-            return NULL;
-        } else {
-            self->tpool.running_id -= 1;
-        }
-        pthread_mutex_unlock(&self->tpool.mutex);
-
-        self->total_ibd_due_to_tmrca.data[g] = 0;
-        for (size_t i = 0; i < self->ibd_num_ends.size; i++) {
-            assert(self->ibd_num_ends.size == self->ibd_cM.size);
-            double l = self->ibd_cM.data[i];
-            self->total_ibd_due_to_tmrca.data[g]
-                += l
-                   * ibdqc_calc_prob_ibd_due_to_g(
-                       self, i, g, self->ibd_num_ends.data[i]);
-        }
-        fprintf(stderr, "g = %d, total = %g\n", g, self->total_ibd_due_to_tmrca.data[g]);
+    self->total_ibd_due_to_tmrca.data[g] = 0;
+    for (size_t i = 0; i < self->ibd_num_ends.size; i++) {
+        assert(self->ibd_num_ends.size == self->ibd_cM.size);
+        double l = self->ibd_cM.data[i];
+        self->total_ibd_due_to_tmrca.data[g]
+            += l * ibdqc_calc_prob_ibd_due_to_g(self, i, g, self->ibd_num_ends.data[i]);
     }
+    fprintf(stderr, "g = %d, total = %g\n", g, self->total_ibd_due_to_tmrca.data[g]);
+    return NULL;
 }
 
 void
@@ -495,11 +503,9 @@ test_read_ibd_chrlen_from_file(int argc, char *argv[])
     fclose(fp_ibd);
     fclose(fp_chr_length);
 
-    tpool_run(&qc.tpool, qc.ibd_cM.size - 1, 0, ibdqc_thread_func_calc_prob_consts,
-        (void *) &qc);
+    tpool_run(&qc.tpool, qc.ibd_cM.size - 1, 0, 1000,  ibdqc_job_func_calc_prob_consts);
 
-    tpool_run(
-        &qc.tpool, 100, 3, ibdqc_thread_func_calc_total_ibd_due_to_g, (void *) &qc);
+    tpool_run(&qc.tpool, 100, 3, 1, ibdqc_job_func_calc_total_ibd_due_to_g);
 
     // print result
     vdouble_fprintf_range(&qc.total_ibd_due_to_tmrca, stdout, 3, 100);
