@@ -1,7 +1,7 @@
 /*
- * ibdqc: 
+ * ibdqc:
  *
- * 10/23/20: 
+ * 10/23/20:
  * 	`ibdqc` follows the ibdNe paper and esitmates the total amount of IBD
  * 	attributable to a TMRCA of g.
  *
@@ -21,8 +21,24 @@
 #include <unistd.h>
 #include "tpool.h"
 #include "vector.h"
+#include "argtable3.h"
+
+// to allow self access different arguments by names
+typedef struct
+{
+	struct arg_file *file1;
+	struct arg_file *file2;
+	struct arg_rem * rem_stdout;
+	struct arg_rem *rem_stderr;
+	struct arg_lit *help;
+	struct arg_end *end;
+	void **argtable;
+	int num_arg;
+}args_t;
 
 typedef struct {
+    // arguments
+    args_t args;
     // NE
     vdouble_t ne_traj;
     // ibd
@@ -64,7 +80,7 @@ ibdqc_alloc(
     vdouble_alloc(&self->ibd_consts, 0);
     vint_alloc(&self->chr_lens, 0);
 
-    tpool_alloc(&self->tpool, (void *)self,  num_threads);
+    tpool_alloc(&self->tpool, (void *) self, num_threads);
 }
 
 void
@@ -78,14 +94,16 @@ ibdqc_free(ibdqc_t *self)
 
     vdouble_free(&self->total_ibd_due_to_tmrca);
     tpool_free(&self->tpool);
+
+    arg_freetable(self->args.argtable, self->args.num_arg);
 }
 
 /* calc gamma(N, l) for each ibd segments, with num_ends taken into consideration
  *
- * NOTE: 
+ * NOTE:
  * 	NE trajectory, IBD length vector and ibd num ends vector must be provided before
  * 	call this function. (This is called by tpool)
- * 	job_id represents the index to an element of IBD length vector 
+ * 	job_id represents the index to an element of IBD length vector
  */
 void *
 ibdqc_job_func_calc_prob_consts(void *self_void, long job_id)
@@ -136,7 +154,7 @@ ibdqc_job_func_calc_prob_consts(void *self_void, long job_id)
     } else if (num_ends == 1) {
         prod *= G / tmp + 1 / tmp / tmp;
     } else {
-	// blank
+        // blank
     }
     sum += prod;
 
@@ -279,40 +297,88 @@ ibdqc_read_ibd(ibdqc_t *self, FILE *fp_ibd)
 }
 
 void
+ibdqc_arg_parse(ibdqc_t *self, int argc, char *argv[])
+{
+    char *progname = "ibdqc";
+    int ret;
+    args_t *pargs = &self->args; 
+
+    // argtable
+    pargs->file1 = arg_filen(NULL, NULL, "<chr_len_file>", 1, 1,
+        "chr length file: single column with integer, the nth row corresponds"
+        "to the nth chr length");
+    pargs->file2 = arg_filen(NULL, NULL, "<ibd_file>", 1, 1,
+        "ibd file: tab/space separated 8 column files, 5th column, i.e. the"
+        "chr column should be inteter and the 8tch, i.e. ibd length in cM, "
+        "should be float point number");
+    pargs->rem_stdout = arg_rem("1>res.txt", "stdout generates result info");
+    pargs->rem_stderr = arg_rem("2>log.txt", "stderr generates log info");
+    pargs->help = arg_litn("h", "help", 0, 1, "help info");
+    pargs->end = arg_end(20);
+    void *argtable[] = { pargs->file1, pargs->file2, pargs->help, pargs->rem_stdout, 
+	    pargs->rem_stderr, pargs->end };
+
+    pargs->num_arg = sizeof(argtable) / sizeof(argtable[0]);
+    pargs->argtable = malloc(sizeof(void*) * pargs->num_arg);
+    memcpy(pargs->argtable, argtable, sizeof(void*) *  pargs->num_arg);
+
+    // check all entry successfully allocated
+    assert(arg_nullcheck(argtable) == 0);
+
+    // set default value before argparse
+    pargs->file1->filename[0] = "-";
+    pargs->file2->filename[0] = "-";
+
+    // parse argument
+    ret = arg_parse(argc, argv, argtable);
+
+    // error
+    if (ret > 0) {
+        arg_print_errors(stdout, pargs->end, progname);
+        arg_print_syntaxv(stderr, argtable, "\tIBD quality control tool\n======\n");
+        arg_print_glossary(stderr, argtable, " %-25s %s\n");
+    } else {
+        // help message
+        if (pargs->help->count == 1) {
+            arg_print_syntaxv(stderr, argtable, "\tIBD quality control tool\n======\n");
+            arg_print_glossary(stderr, argtable, " %-25s %s\n");
+
+        } else {
+            // correct message
+            fprintf(stderr, "chr_len file: %s\n", pargs->file1->filename[0]);
+            fprintf(stderr, "ibd file: %s\n", pargs->file2->filename[0]);
+        }
+    }
+}
+
+void
 test_read_ibd_chrlen_from_file(int argc, char *argv[])
 {
     time_t t;
     ibdqc_t qc;
     FILE *fp_ibd, *fp_chr_length;
 
-    if (argc < 3) {
-        fprintf(stderr, "Usage: ibdqc chr_len.txt ibd.txt \n"
-			"\t- in chr_len.txt, there should only a single column, "
-			"and the nth line contains the length of the nth chr\n"
-			"\t- in ibd.txt, the chr column needs to be intergers, and "
-			"the 8th column is the ibd-length column\n"
-			"\t- `stderr`: for log info\n"
-			"\t- `stdout`: for result reporting, "
-			"1st col: g, 2nd col: total ibd\n\n");
-        exit(1);
-    }
-
-    // start time:
-    time(&t);
-    fprintf(stderr, "Start time: %s", ctime(&t));
-
     // get number of core available
     long num_processors = sysconf(_SC_NPROCESSORS_ONLN);
     fprintf(stderr, "num_processors: %ld\n", num_processors);
 
     ibdqc_alloc(&qc, 300, 2, 10000, num_processors);
+    
+    // parse argument
+    ibdqc_arg_parse(&qc, argc, argv);
 
-    fp_chr_length = fopen(argv[1], "r");
+    // start time:
+    time(&t);
+    fprintf(stderr, "Start time: %s", ctime(&t));
+
+
+    // open files
+    fp_chr_length = fopen(qc.args.file1->filename[0], "r");
     assert(fp_chr_length != NULL);
-
-    fp_ibd = fopen(argv[2], "r");
+    fp_ibd = fopen(qc.args.file2->filename[0], "r");
     assert(fp_ibd != NULL);
 
+    // read data
     ibdqc_read_chr_length(&qc, fp_chr_length);
     ibdqc_read_ibd(&qc, fp_ibd);
 
@@ -322,7 +388,7 @@ test_read_ibd_chrlen_from_file(int argc, char *argv[])
     // multithreading
     // 	1. calculate the gamma const for each ibd segment
     // 	2. calculate estimated total ibd due to each generation
-    tpool_run(&qc.tpool, qc.ibd_cM.size - 1, 0, 1000,  ibdqc_job_func_calc_prob_consts);
+    tpool_run(&qc.tpool, qc.ibd_cM.size - 1, 0, 1000, ibdqc_job_func_calc_prob_consts);
     tpool_run(&qc.tpool, 100, 3, 1, ibdqc_job_func_calc_total_ibd_due_to_g);
 
     // print result
