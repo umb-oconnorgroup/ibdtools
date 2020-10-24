@@ -9,6 +9,9 @@ tpool.o: tpool.h tpool.c
 ibdqc.o: ibdqc.c
 	gcc -c ibdqc.c -g -Wall
 
-ibdqc: ibdqc.o tpool.o
+ibdqc: ibdqc.o tpool.o vector.o
 	gcc -g -o ibdqc ibdqc.o tpool.o vector.o $(FLAGS)
+
+clean: 
+	rm *.o ibdqc
 

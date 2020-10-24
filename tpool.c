@@ -1,3 +1,17 @@
+/*
+ *
+ * tpool.c:
+ * 	a multithreading wrapper to help run jobs in parallel easier.
+ *
+ * 	1. it should be used within a parent object, such ibdqc;
+ * 	2. tpool_t contains a pointer to the parent object;
+ * 	3. the running_id, last_id control are used to control the job id for
+ * 	threading function or job function;
+ * 	4. to avoid locking the mutex so often, `step` is provided to assign multiple
+ * 	jobs (no. = step) to each thread at a time. And each job is run by the job
+ * 	function pointed by the function pointer `job_func` 
+ *
+ */
 #include<pthread.h>
 #include<stdlib.h>
 #include<assert.h>
@@ -77,7 +91,6 @@ tpool_run(tpool_t *self, long thread_init_job_id, long thread_last_job_id,
         pthread_join(self->threads[i], NULL);
     }
 }
-
 
 void
 tpool_free(tpool_t *self)

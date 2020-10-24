@@ -1,3 +1,16 @@
+/*
+ * ibdqc: 
+ *
+ * 10/23/20: 
+ * 	`ibdqc` follows the ibdNe paper and esitmates the total amount of IBD
+ * 	attributable to a TMRCA of g.
+ *
+ *      Ref: Browning, S., Browning, B. (2015). Accurate Non-parametric
+ *      Estimation of Recent Effective Population Size from Segments of
+ *      Identity by Descent The American Journal of Human Genetics  97(3),
+ *      404-18. https://dx.doi.org/10.1016/j.ajhg.2015.07.012
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -8,11 +21,6 @@
 #include <unistd.h>
 #include "tpool.h"
 #include "vector.h"
-
-/* ----------------------------------------------------
- * struct for ibdqc
- * ---------------------------------------------------
- */
 
 typedef struct {
     // NE
@@ -27,7 +35,7 @@ typedef struct {
     // constants
     int g_star;
     int g_max;
-    // multithreads
+    // for multithreading
     tpool_t tpool;
     // results
     vdouble_t total_ibd_due_to_tmrca;
@@ -41,8 +49,8 @@ ibdqc_alloc(
     self->g_star = g_star;
 
     // TODO: put this in function parameters
-    // how many bp from between the ends of chromosome and ends of ibdsegment
-    // are considered reaching the ends.
+    // chr_end_range means how many bp are between the end of the chromosome and
+    // the end of ibdsegment are considered reaching the ends.
     self->chr_end_range = 100;
 
     vdouble_alloc(&self->ne_traj, g_max + 1);
@@ -72,8 +80,13 @@ ibdqc_free(ibdqc_t *self)
     tpool_free(&self->tpool);
 }
 
-// calc gamma(N, l)
-// run after NE is set and IBD length and ends are determined
+/* calc gamma(N, l) for each ibd segments, with num_ends taken into consideration
+ *
+ * NOTE: 
+ * 	NE trajectory, IBD length vector and ibd num ends vector must be provided before
+ * 	call this function. (This is called by tpool)
+ * 	job_id represents the index to an element of IBD length vector 
+ */
 void *
 ibdqc_job_func_calc_prob_consts(void *self_void, long job_id)
 {
@@ -81,7 +94,6 @@ ibdqc_job_func_calc_prob_consts(void *self_void, long job_id)
     long ibd_index;
     double sum, prod, tmp, l;
     int num_ends;
-    // fprintf(stderr, "called: ibdqc_job_func_calc_prob_consts\n");
 
     /* parameters or constant */
     ibdqc_t *self = (ibdqc_t *) self_void;
@@ -124,16 +136,19 @@ ibdqc_job_func_calc_prob_consts(void *self_void, long job_id)
     } else if (num_ends == 1) {
         prod *= G / tmp + 1 / tmp / tmp;
     } else {
-        // if num_ends_reached == 2) prod = prod * 1
+	// blank
     }
     sum += prod;
 
     self->ibd_consts.data[ibd_index] = sum;
 
-    // fprintf(stderr, "l = %g, num_ends = %d, gamma = %g\n", l,  num_ends, sum);
     return NULL;
 }
 
+/*
+ *  Calculate the probability of an ibd segment due to tmrca=g
+ *  ibd_index: the index to an element of the ibd length vector
+ */
 extern inline double
 ibdqc_calc_prob_ibd_due_to_g(
     ibdqc_t *self, long ibd_index, unsigned int g, int num_ends_reached)
@@ -169,6 +184,12 @@ ibdqc_calc_prob_ibd_due_to_g(
     return probability;
 }
 
+/*
+ * calculate the total ibd due to tmrca=g from all ibdsegments
+ *
+ * 	based on ibdqc_calc_prob_ibd_due_to_g
+ * 	called by tpool
+ */
 void *
 ibdqc_job_func_calc_total_ibd_due_to_g(void *self_void, long job_id)
 {
@@ -186,6 +207,9 @@ ibdqc_job_func_calc_total_ibd_due_to_g(void *self_void, long job_id)
     return NULL;
 }
 
+/*
+ * read in the chr length for each chr
+ */
 void
 ibdqc_read_chr_length(ibdqc_t *self, FILE *fp_chr_length)
 {
@@ -199,6 +223,10 @@ ibdqc_read_chr_length(ibdqc_t *self, FILE *fp_chr_length)
     }
 }
 
+/*
+ *  read ibd info into ibd length vector and ibd num ends vector
+ *  	Note: chr_length must be determined before calling the function
+ */
 void
 ibdqc_read_ibd(ibdqc_t *self, FILE *fp_ibd)
 {
@@ -258,7 +286,14 @@ test_read_ibd_chrlen_from_file(int argc, char *argv[])
     FILE *fp_ibd, *fp_chr_length;
 
     if (argc < 3) {
-        perror("need to provide two file names!\n");
+        fprintf(stderr, "Usage: ibdqc chr_len.txt ibd.txt \n"
+			"\t- in chr_len.txt, there should only a single column, "
+			"and the nth line contains the length of the nth chr\n"
+			"\t- in ibd.txt, the chr column needs to be intergers, and "
+			"the 8th column is the ibd-length column\n"
+			"\t- `stderr`: for log info\n"
+			"\t- `stdout`: for result reporting, "
+			"1st col: g, 2nd col: total ibd\n\n");
         exit(1);
     }
 
@@ -284,8 +319,10 @@ test_read_ibd_chrlen_from_file(int argc, char *argv[])
     fclose(fp_ibd);
     fclose(fp_chr_length);
 
+    // multithreading
+    // 	1. calculate the gamma const for each ibd segment
+    // 	2. calculate estimated total ibd due to each generation
     tpool_run(&qc.tpool, qc.ibd_cM.size - 1, 0, 1000,  ibdqc_job_func_calc_prob_consts);
-
     tpool_run(&qc.tpool, 100, 3, 1, ibdqc_job_func_calc_total_ibd_due_to_g);
 
     // print result
@@ -301,7 +338,6 @@ test_read_ibd_chrlen_from_file(int argc, char *argv[])
 int
 main(int argc, char *argv[])
 {
-    // test_threads();
     test_read_ibd_chrlen_from_file(argc, argv);
 
     return 0;

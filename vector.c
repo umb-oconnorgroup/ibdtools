@@ -45,7 +45,6 @@ vint_initialize(vint_t *self, int init_value)
 extern inline void
 vint_add_element(vint_t *self, int value)
 {
-    // fprintf(stderr, "%ld\n", self->size);
     if (self->size == self->capacity) {
         if (self->capacity == 0) {
             self->capacity = 1;
@@ -113,7 +112,6 @@ vdouble_add_element(vdouble_t *self, double value)
     }
     self->size += 1;
     self->data[self->size - 1] = value;
-    // fprintf(stderr, "aded %ld, %g\n", self->size - 1, self->data[self->size - 1]);
 }
 
 void
