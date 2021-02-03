@@ -226,7 +226,7 @@ clust_update_links(clust_t *self, size_t row, size_t col)
 }
 
 void
-clust_update_matrix(clust_t *self, size_t row, size_t col)
+clust_update_mat_and_sid(clust_t *self, size_t row, size_t col)
 {
     size_t index1, index2;
     size_t weight1, weight2;
@@ -321,6 +321,8 @@ clust_update_col_min(clust_t *self, size_t row, size_t col)
             min_row = 0;
             index = row_col_to_index(0, i_col);
             min = cM[index];
+
+	    
             for (size_t j_row = 1; j_row < n; j_row++) {
 
                 if (j_row == i_col)
@@ -337,8 +339,9 @@ clust_update_col_min(clust_t *self, size_t row, size_t col)
             cmin_ind[i_col] = min_row;
         }
 
-        /* 3. for those #sidnew row has a value smaller than column min  */
-        if (min_row != col && min_row != row && i_col != small) {
+        /* 3. for those #sidnew row has a value smaller than column min  
+        if (min_row != col && min_row != row && i_col != small)*/
+       	else{
             index = row_col_to_index(small, i_col);
             value = cM[index];
             /*calcuated value < min*/
@@ -397,7 +400,7 @@ clust_main(const char *fn_matrix_binary, size_t N, int to_transform)
         fprintf(stderr, "run_num_samples: %lu, index: %lu, i: %lu, j: %lu\n", myclust.n,
             index, i, j);
         clust_update_links(&myclust, i, j);
-        clust_update_matrix(&myclust, i, j);
+        clust_update_mat_and_sid(&myclust, i, j);
         clust_update_col_min(&myclust, i, j);
     }
     clust_free(&myclust);
