@@ -39,7 +39,19 @@ typedef struct {
     size_t m_sid_last;
     float *col_min_value;
     size_t *col_min_index;
+    int *merge_col_updated; /* tells if cells in merge col are updated. Used for
+                               optimization */
+    int verbose;
 } clust_t;
+
+typedef struct {
+    int verbose;
+    int to_transform;
+    char *matrix_file_name;
+    size_t N;
+    char *usage;
+    int cnt_positional_params;
+} args_t;
 
 static inline size_t
 row_col_to_index(size_t row, size_t col)
@@ -64,42 +76,24 @@ index_to_row_col(size_t x, size_t *prow, size_t *pcol)
 }
 
 void
-clust_init(clust_t *self, const char *filename, size_t N)
+clust_init(clust_t *self, float * cM, size_t N)
 {
-
-    size_t num_pairs = N * (N - 1) / 2;
-
-    float *cM = malloc(sizeof(*cM) * N * N);
     self->col_min_value = calloc(N, sizeof(*self->col_min_value));
     self->col_min_index = calloc(N, sizeof(*self->col_min_index));
     self->m_sid = calloc(2 * N - 1, sizeof(*self->m_sid));
     self->lnks = calloc(N - 1, sizeof(*self->lnks));
-    self->leaf_cnt = malloc((2 * N - 1) * sizeof(*self->leaf_cnt));
+    self->leaf_cnt = calloc((2 * N - 1), sizeof(*self->leaf_cnt));
+    self->merge_col_updated = calloc(N, sizeof(*self->merge_col_updated));
 
-    assert(cM && self->col_min_index && self->col_min_value && self->m_sid && self->lnks
-           && self->leaf_cnt && "Can't alloc memory");
+    assert(self->col_min_index && self->col_min_value && self->m_sid && self->lnks
+           && self->leaf_cnt && self->merge_col_updated && "Can't alloc memory");
 
-    /* read precomputed distance matrix */
-    fprintf(stderr, "reading matrix ...\n");
-    FILE *fp = fopen(filename, "rb");
-    assert(fp != NULL && "can't open matrix file");
-    size_t nread = fread(cM, sizeof(*cM), N * N, fp);
-    assert(nread == N * N && "size of matrix file not consistent with sample numbers");
-    fclose(fp);
-    fp = NULL;
-
-    /* matrix representation to array representation */
-    fprintf(stderr, "make matrix triangle ...\n");
-    for (size_t i = 1; i < N; i++)
-        for (size_t j = 0; j < i; j++)
-            cM[row_col_to_index(i, j)] = cM[i * N + j];
-    cM = realloc(cM, num_pairs * sizeof(*cM));
-    assert(cM && "failed to shrink memory of the matrix");
 
     /* intialization */
     self->N = N;
     self->n = self->N;
     self->cM = cM;
+    self->verbose = 0;
 
     for (size_t i = 0; i < N; i++) {
         self->leaf_cnt[i] = 1;
@@ -128,6 +122,8 @@ clust_free(clust_t *self)
     self->lnks = NULL;
     free(self->leaf_cnt);
     self->leaf_cnt = NULL;
+    free(self->merge_col_updated);
+    self->merge_col_updated = NULL;
 }
 
 void
@@ -143,8 +139,8 @@ clust_col_min_init(clust_t *self)
 
     size_t index;
     for (size_t col = 0; col < self->N; col++) {
-        min_row = 0;
-        index = row_col_to_index(0, col);
+        min_row = (col == 0) ? 1 : 0;
+        index = row_col_to_index(min_row, col);
         min = cM[index];
         for (size_t row = 0; row < self->N; row++) {
             if (row == col)
@@ -167,21 +163,36 @@ clust_find_min_cM_index(clust_t *self, size_t *prow, size_t *pcol)
     /* find the min of the matrix */
     float min, value;
     size_t n = self->n;
-    float *col_mins = self->col_min_value;
-    size_t *col_min_row = self->col_min_index;
+    float *cmin = self->col_min_value;
+    size_t *cmin_ind = self->col_min_index;
     size_t min_col;
-    min = col_mins[0];
     min_col = 0;
-    for (int col = 1; col < n; col++) {
-        value = col_mins[col];
+    min = cmin[min_col];
+    for (size_t col = 1; col < n; col++) {
+        value = cmin[col];
         if (value < min) {
             min = value;
             min_col = col;
         }
     }
-    *prow = col_min_row[min_col];
+    if (self->verbose) {
+        for (size_t col = 0; col < n; col++) {
+            fprintf(stderr,
+                "%c, col=%zu, cmin_ind[col]= %zu:", 'a' + (char) self->m_sid[col], col,
+                cmin_ind[col]);
+            for (size_t row = 0; row < n; row++) {
+                if (row == col)
+                    fprintf(stderr, "-,");
+                else {
+                    fprintf(stderr, "%0.2f,", self->cM[row_col_to_index(row, col)]);
+                }
+            }
+            fprintf(stderr, "\n");
+        }
+    }
+    *prow = cmin_ind[min_col];
     *pcol = min_col;
-    if (*prow >= n || *prow < 0 || *pcol < 0 || *pcol >= n) {
+    if (*prow >= n || *prow < 0 || *pcol < 0 || *pcol >= n || *prow == *pcol) {
         fprintf(stderr, "row/col out of range: ");
         fprintf(stderr, "row=%zu, col=%zu, n=%zu ", *prow, *pcol, n);
         assert(*prow < n && *prow >= 0 && "row num of min element out of range");
@@ -220,9 +231,14 @@ clust_update_links(clust_t *self, size_t row, size_t col)
     lnk->height = value / 2;
     lnk->leaves = lcnt[sid_new];
     self->nlink += 1;
-    /* TODO: after debugging is done change stderr back to stdout*/
-    fprintf(
-        stderr, "%zu\t%zu\t%.4f\t%zu\n", lnk->id1, lnk->id2, lnk->height, lnk->leaves);
+
+    if (self->verbose) {
+        fprintf(stderr, "%zu (%zu)\t%zu (%zu) \t%.4f\t%zu\n", lnk->id1, lcnt[sid1],
+            lnk->id2, lcnt[sid2], lnk->height, lnk->leaves);
+    } else {
+        fprintf(stdout, "%zu\t%zu\t%.4f\t%zu\n", lnk->id1, lnk->id2, lnk->height,
+            lnk->leaves);
+    }
 }
 
 void
@@ -255,17 +271,24 @@ clust_update_mat_and_sid(clust_t *self, size_t row, size_t col)
         /* merging sample row and sample col */
         index1 = row_col_to_index(i, large);
         index2 = row_col_to_index(i, small);
-        cM[index2] = cM[index1] * weight1 + cM[index2] * weight2;
-        cM[index2] /= (weight1 + weight2);
+        if (cM[index1] == cM[index2])
+            self->merge_col_updated[i] = 0;
+        else {
+            self->merge_col_updated[i] = 1;
+            cM[index2] = cM[index1] * weight1 + cM[index2] * weight2;
+            cM[index2] /= (weight1 + weight2);
+        }
         /* indicating sample indexes in running matrix  */
     }
 
     /*update samples labels*/
-    sidnew = ++(self->m_sid_last);
+    ++(self->m_sid_last);
+    sidnew = (self->m_sid_last);
     sid[small] = sidnew;
+    last = n - 1;
+    sid[large] = sid[last];
 
     /* 2. swap row slots with last slots to condense the matrix */
-    last = n - 1;
     if (large != last) {
         for (size_t i = 0; i < n; i++) {
             /* copy last running sample to sample row*/
@@ -276,21 +299,6 @@ clust_update_mat_and_sid(clust_t *self, size_t row, size_t col)
             cM[index1] = cM[index2];
             cM[index2] = -1;
         }
-        /*update samples labels*/
-        sid[large] = sid[last];
-        sid[last] = -1;
-        /* update col min info */
-        self->col_min_value[large] = self->col_min_value[last];
-        self->col_min_index[large] = self->col_min_index[last];
-        /* update min_rows from last to row */
-        for (size_t i = 0; i < n; i++)
-            if (self->col_min_index[i] == last)
-                self->col_min_index[i] = large;
-    } else { /* when large = last */
-        /* update min_rows from last to row */
-        for (size_t i = 0; i < n; i++)
-            if (self->col_min_index[i] == last)
-                self->col_min_index[i] = small;
     }
 
     /* 3. update num of running samples*/
@@ -310,48 +318,86 @@ clust_update_col_min(clust_t *self, size_t row, size_t col)
     float min, value;
     size_t index = 0;
     size_t n = self->n;
+    size_t last = n;
     float *cM = self->cM;
-    size_t small = row > col ? col : row;
+    size_t small, large;
+    int need_recalc = 0;
+    if (row < col) {
+        large = col;
+        small = row;
+    } else {
+        large = row;
+        small = col;
+    }
+
+    cmin[large] = cmin[last];
+    cmin_ind[large] = cmin_ind[last];
 
     /* 1. for those previous col min index is #col or #row, and
      * 2. for column #sidnew. */
     for (size_t i_col = 0; i_col < n; i_col++) {
         min_row = cmin_ind[i_col];
-        if (min_row == col || min_row == row || i_col == small) {
-            min_row = 0;
-            index = row_col_to_index(0, i_col);
-            min = cM[index];
+        need_recalc = 0;
 
-	    
-            for (size_t j_row = 1; j_row < n; j_row++) {
+        if (i_col == small) {
+            need_recalc = 1;
+            if (cM[row_col_to_index(small, large)]
+                == self->lnks[self->nlink - 1].height) {
+                cmin_ind[small] = large;
+                /* if min_row == small, keep the same; */
+                need_recalc = 0;
+            }
 
-                if (j_row == i_col)
-                    continue;
-
-                index = row_col_to_index(j_row, i_col);
-                value = cM[index];
-                if (value < min) {
-                    min = value;
-                    min_row = j_row;
+        } else if (min_row == large || min_row == small) {
+            need_recalc = 1;
+            /* when the two merged cells have the same value, the merged value is still
+             * min */
+            if (self->merge_col_updated[i_col] == 0) {
+                if (min_row == large)
+                    cmin_ind[i_col] = small;
+                /* if min_row == small, keep the same; */
+                need_recalc = 0;
+            }
+        } else /* if (min_row != large && min_row != small) */ {
+            /* no change only because merge of two non-min is still non-min
+             * rediect from last to large*/
+            if (min_row == last) {
+                if (large != last) {
+                    cmin_ind[i_col] = large;
+                    cmin[i_col] = cmin[large];
+                } else {
+                    /* will be reculculated */
                 }
             }
-            cmin[i_col] = min;
-            cmin_ind[i_col] = min_row;
         }
 
-        /* 3. for those #sidnew row has a value smaller than column min  
-        if (min_row != col && min_row != row && i_col != small)*/
-       	else{
-            index = row_col_to_index(small, i_col);
+        if (need_recalc == 0)
+            continue;
+
+        if (self->verbose)
+            fprintf(stderr, "+");
+
+        min_row = (i_col == 0) ? 1 : 0;
+        index = row_col_to_index(min_row, i_col);
+        min = cM[index];
+
+        for (size_t j_row = 1; j_row < n; j_row++) {
+
+            if (j_row == i_col)
+                continue;
+
+            index = row_col_to_index(j_row, i_col);
             value = cM[index];
-            /*calcuated value < min*/
-            if (value < cmin[i_col]) {
-                cmin[i_col] = value;
-                cmin_ind[i_col] = small;
+            if (value < min) {
+                min = value;
+                min_row = j_row;
             }
-            /*calcuated value > min; no change*/
         }
+        cmin[i_col] = min;
+        cmin_ind[i_col] = min_row;
     }
+    if (self->verbose)
+        fprintf(stderr, "\n");
 
     for (size_t i_col = 0; i_col < n && n >= 3; i_col++)
         if (cmin_ind[i_col] < 0 && cmin_ind[i_col] >= n) {
@@ -386,24 +432,25 @@ clust_matrix_transform(clust_t *self)
 }
 
 int
-clust_main(const char *fn_matrix_binary, size_t N, int to_transform)
+clust_main(clust_t *self, float *cM, size_t N, int to_transform, int verbose)
 {
-    clust_t myclust;
-    clust_init(&myclust, fn_matrix_binary, N);
+    clust_init(self, cM, N);
     if (to_transform != 0)
-        clust_matrix_transform(&myclust);
-    clust_col_min_init(&myclust);
+        clust_matrix_transform(self);
+    clust_col_min_init(self);
+    self->verbose = verbose;
 
     size_t i, j, index;
-    while (myclust.n >= 2) {
-        index = clust_find_min_cM_index(&myclust, &i, &j);
-        fprintf(stderr, "run_num_samples: %lu, index: %lu, i: %lu, j: %lu\n", myclust.n,
+    while (self->n >= 2) {
+        index = clust_find_min_cM_index(self, &i, &j);
+        fprintf(stderr, "run_num_samples: %lu, index: %lu, i: %lu, j: %lu\n", self->n,
             index, i, j);
-        clust_update_links(&myclust, i, j);
-        clust_update_mat_and_sid(&myclust, i, j);
-        clust_update_col_min(&myclust, i, j);
+        assert(i != j && "col row should not be equal");
+        clust_update_links(self, i, j);
+        clust_update_mat_and_sid(self, i, j);
+        clust_update_col_min(self, i, j);
     }
-    clust_free(&myclust);
+    clust_free(self);
 
     return 0;
 }
@@ -411,19 +458,72 @@ clust_main(const char *fn_matrix_binary, size_t N, int to_transform)
 int
 main(int argc, char *argv[])
 {
-    int to_transform = 0;
-    if (argc < 3 || argc > 4) {
-        fprintf(stderr, "\n\nUsage: ./upgma <float32_NxN_matrix_binary_file> "
-                        "<N> [<-s]>  2>/dev/null \n"
-                        "\twith `-s`: similarity matrix\n"
-                        "\twithout `-s`: distance matrix\n\n");
+    args_t args;
+    size_t N, num_pairs, nread;
+    float *cM;
+    FILE * fp;
+
+    args.cnt_positional_params = 0;
+    args.matrix_file_name = NULL;
+    args.to_transform = 0;
+    args.verbose = 0;
+    args.N = 0;
+    args.usage = "Usage: ./upgma [options]  matrix_file   num_sample\n"
+                 "\t-s: transform similarity matrix to distance matrix\n"
+                 "\t-v: toggle debuging info\n"
+                 "\t-h/--help: help information\n"
+		 "stderr: log info\n"
+		 "stdout: linkage matrix\n";
+
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-s") == 0) {
+            args.to_transform = 1;
+        } else if (strcmp(argv[i], "-v") == 0) {
+            args.verbose = 1;
+        } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+            fprintf(stderr, "%s\n", args.usage);
+            exit(1);
+        } else {
+            if (args.cnt_positional_params == 0)
+                args.matrix_file_name = argv[i];
+            else if (args.cnt_positional_params == 1)
+                args.N = strtol(argv[i], NULL, 10);
+            else {
+                fprintf(stderr, "Error: to much positional parameters!\n");
+                exit(1);
+            }
+            args.cnt_positional_params++;
+        }
+    }
+    if (args.cnt_positional_params != 2) {
+        fprintf(stderr, "Error: need exact 2 positional parameters!\n");
         exit(1);
     }
-    if (argc == 4 && strcmp(argv[3], "-s") == 0) {
-        to_transform = 1;
-    }
 
-    clust_main(argv[1], atoi(argv[2]), to_transform);
+    N = args.N;
+    num_pairs = N * (N-1) / 2;
+    cM = calloc(N * N, sizeof(*cM));
+    assert(cM && "can't alloc memory");
+
+    /* read precomputed distance matrix */
+    fprintf(stderr, "reading matrix ...\n");
+    fp = fopen(args.matrix_file_name, "rb");
+    assert(fp != NULL && "can't open matrix file");
+    nread = fread(cM, sizeof(*cM), N * N, fp);
+    assert(nread == N * N && "size of matrix file not consistent with sample numbers");
+    fclose(fp);
+    fp = NULL;
+
+    /* matrix representation to array representation */
+    fprintf(stderr, "make matrix triangle ...\n");
+    for (size_t i = 1; i < N; i++)
+        for (size_t j = 0; j < i; j++)
+            cM[row_col_to_index(i, j)] = cM[i * N + j];
+    cM = realloc(cM, num_pairs * sizeof(*cM));
+    assert(cM && "failed to shrink memory of the matrix");
+
+    clust_t myclust;
+    clust_main(&myclust, cM, N, args.to_transform, args.verbose);
 
     return 0;
 }
