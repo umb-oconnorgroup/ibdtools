@@ -2,16 +2,20 @@
 #include <argp.h>
 #include <cassert>
 #include <cstdio>
+#include <execution>
 #include <fstream>
 #include <htslib/vcf.h>
 #include <iostream>
 #include <iterator>
 #include <map>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
 #include <zlib.h>
+
+#define UINT32T_EMPTY ~(uint32_t)(0)
 
 using namespace std;
 
@@ -22,7 +26,7 @@ const char *argp_program_version = "ibdmerge 0.1";
 const char *argp_program_bug_address = "gbinux@gmail.com";
 static char doc[] =
     "ibdmerge merges IBD segments following Browning's tool "
-    "merge-ibd-segments.jar. This is rewritten to handle large datasets.\n";
+    "merge-ibd-segments.jar. This is written to handle large datasets.\n";
 static char args_doc[] = "IBD_FILE VCF_FILE MAP_FILE";
 static struct argp_option options[] = {
     {0, 0, 0, 0, "Required arguments:"},
@@ -30,10 +34,10 @@ static struct argp_option options[] = {
      "IBD files with format `sn1:sn2\tstart\tend...`, sorted by sort -k1,1 "
      "-k2,2n -k3,3n"},
     {"VCF_FILE", 1, 0, OPTION_DOC | OPTION_NO_USAGE,
-     "VCF file used to call IBD. The VCF file is expected to only have "
+     "VCF file (tab delimited) used to call IBD. The VCF file is expected to only have "
      "biallelic sites"},
     {"MAP_FILE", 1, 0, OPTION_DOC | OPTION_NO_USAGE,
-     "MAP file used to call IBD"},
+     "MAP file (space delimited) used to call IBD"},
 
     {0, 0, 0, 0, "Optional arguments:"},
     {"max_cM", 'm', "float", 0,
@@ -41,7 +45,8 @@ static struct argp_option options[] = {
     {"discord", 'd', "int", 0,
      "max number of genotypes in IBD gap that are inconsistent with IBD, "
      "default 1"},
-    {"out", 'o', "filename", 0, "IBD output file after merging, default stdout"},
+    {"out", 'o', "filename", 0,
+     "IBD output file after merging, default stdout"},
     {"verbose", 'v', 0, 0, "Show processing updates, default false"},
     {0}};
 struct arguments {
@@ -167,9 +172,10 @@ public:
     bp_vec.resize(npos, 0);
   }
 
-  void add_pos(uint32_t pos, uint32_t pos_id) {
+  void add_pos(uint32_t pos) {
+    this->bp_vec.push_back(pos);
+    uint32_t pos_id = bp_vec.size() - 1;
     this->pos2id_map[pos] = pos_id;
-    this->bp_vec[pos_id] = pos;
   }
 
   uint32_t get_pos_id(uint32_t pos) { return pos2id_map.at(pos); }
@@ -177,6 +183,8 @@ public:
   float get_cM(uint32_t pos_id) { return cm_vec[pos_id]; }
 
   void calc_genetic_pos(GeneticMap &gmap) {
+    if (cm_vec.size() <= bp_vec.size())
+      cm_vec.resize(bp_vec.size());
     transform(bp_vec.begin(), bp_vec.end(), cm_vec.begin(),
               [&](uint32_t pos) -> float { return gmap.get_cm(pos); });
   }
@@ -198,13 +206,9 @@ public:
       name2id_map; // sample name mapped to sample id.
   vector<string> name_vec;
 
-  void set_size(uint32_t nsam) {
-    name2id_map.reserve(nsam);
-    name_vec.resize(nsam);
-  }
-
-  void add_sample(const char *key, uint32_t id) {
-    name_vec[id] = key;
+  void add_sample(const char *key) {
+    name_vec.push_back(key);
+    uint32_t id = name_vec.size() - 1;
     name2id_map[name_vec[id]] = id;
   }
 
@@ -219,6 +223,11 @@ public:
   vector<uint64_t> genotype_vec;
   size_t size_per_row;
   uint32_t npos, nsam;
+
+  size_t shrink_to_fit() {
+    genotype_vec.shrink_to_fit();
+    return genotype_vec.size() * sizeof(uint64_t);
+  }
 
   size_t set_size(uint32_t num_variants, uint32_t num_samples, int num_ploidy) {
     size_t total_bytes = 0;
@@ -268,6 +277,7 @@ public:
   Samples sample;
   Variants variant;
   Genotypes genotype;
+  size_t mem_use_estimate;
   bool verbose;
 
   void parse_vcf(string vcf_file_name) {
@@ -276,39 +286,9 @@ public:
     bcf_hdr_t *hdr = NULL;
     bcf1_t *rec = NULL;
     int32_t res = 0, count = 0, rec_count = 0;
-    uint32_t *p_allele = NULL, npos = 0, nsam = 0;
-    size_t estimated_mem = 0;
+    uint32_t *p_allele = NULL, nsam = 0, ploidy = 0;
 
-    // read the file first time to get no. of lines, no of samples.
     cerr << "Parsing VCF file ...\n";
-    fp = bcf_open(vcf_file_name.c_str(), "r");
-    assert(fp && "Can't open vcf file");
-
-    if (!(hdr = bcf_hdr_read(fp)))
-      assert(hdr && "Can't read header of the vcf file");
-    nsam = hdr->n[BCF_DT_SAMPLE];
-
-    rec = bcf_init1();
-    assert(rec && "Can't init bcf record");
-
-    while ((res = bcf_read(fp, hdr, rec)) == 0) {
-      if (verbose)
-        cerr << "\r    Count variants: " << npos;
-      npos++;
-    }
-    bcf_destroy1(rec);
-    bcf_hdr_destroy(hdr);
-    assert(bcf_close(fp) == 0);
-    fp = NULL;
-
-    cerr << "\n    Detected nsam = " << nsam << ", npos = " << npos;
-
-    // reserve space for samples, positions, genotypes.
-    this->sample.set_size(nsam);
-    this->variant.set_size(npos);
-    estimated_mem = this->genotype.set_size(npos, nsam, 2);
-    cerr << "\n    Estimated memory usage: "
-         << estimated_mem * 1.0 / 1024 / 1024 / 1024 << " Gb \n";
 
     // read the file the second time to save genotype data
     fp = bcf_open(vcf_file_name.c_str(), "r");
@@ -324,7 +304,7 @@ public:
     cerr << "Parsing VCF file ...";
 
     for (int i = 0; i < hdr->n[BCF_DT_SAMPLE]; i++)
-      this->sample.add_sample(hdr->id[BCF_DT_SAMPLE][i].key, i);
+      this->sample.add_sample(hdr->id[BCF_DT_SAMPLE][i].key);
 
     while ((res = bcf_read(fp, hdr, rec)) == 0) {
       assert(res == 0 && "Can't read record");
@@ -335,113 +315,187 @@ public:
       }
 
       res = bcf_get_genotypes(hdr, rec, &p_allele, &count);
+      if (ploidy == 0)
+        ploidy = count / nsam;
       assert(res != 0 && "Can't get genotypes");
       // set alleles
+      mem_use_estimate = genotype.set_size(rec_count + 1, count / 2, ploidy);
+
+      if (verbose) {
+        cerr << "    Estimated memory usage: "
+             << 1.0 * mem_use_estimate / 1024 / 1024 / 1024 << " Gb";
+      }
       for (int32_t i = 0; i < count; i++) {
         this->genotype.set_allele(rec_count, i / 2, i % 2,
                                   p_allele[i] >> 1 & 3);
       }
       // set positions
-      this->variant.add_pos(
-          rec->pos + 1,
-          rec_count); // pos is 0-based, while vcf is 1-based. wield
+      this->variant.add_pos(rec->pos +
+                            1); // pos is 0-based, while vcf is 1-based. wield
       rec_count++;
-      bcf_clear(rec);
     };
     bcf_destroy1(rec);
     bcf_hdr_destroy(hdr);
     assert(bcf_close(fp) == 0);
     fp = NULL;
     cerr << "\n    Done parsing VCF file\n";
+
+    // release memory used memory
+    mem_use_estimate = genotype.shrink_to_fit();
   }
 };
 
-class IbdRec {
-
-public:
-  string line, field, sn1, sn2;
-  istringstream iss;
-  uint32_t sample_id1, sample_id2;
-  uint32_t s_pos, e_pos;
-  string chr_name;
+class IbdMerger {
+  gzFile gz_ibd_in, gz_ibd_out;
+  bool gz_ibd_in_eof;
+  size_t max_lines;
+  vector<uint32_t> vSid1, vSid2;
+  vector<uint32_t> vIndex;
+  vector<uint32_t> vStarts, vEnds, vRange;
   Vcf &vcf_ref;
   GeneticMap &gmap_ref;
-  gzFile out_file;
 
-  IbdRec(Vcf &vcf, GeneticMap &gmap, const char *out_fn)
-      : vcf_ref(vcf), gmap_ref(gmap) {
-    line.reserve(10000);
-    field.reserve(10000);
-    if (strcmp("stdout", out_fn) == 0)
-      out_file = Z_NULL;
-    else {
-      out_file = gzopen(out_fn, "w");
-      if (out_file == Z_NULL) {
-        cerr << "Cannot open output file to write\n";
-        exit(1);
-      }
-    }
+  // criteria
+  int max_disc_sites;
+  float max_cM;
+
+  // buffers
+  char buffer[1000];
+  string field;
+  istringstream iss;
+
+  // counters
+  uint64_t merged_count, printed_count;
+
+  // print level
+  bool verbose;
+
+public:
+  IbdMerger(gzFile gzFile_ibd_in, gzFile gzFile_ibd_out, size_t max_lines,
+            int max_disc_sites, float max_cM, Vcf &vcf, GeneticMap &gmap,
+            bool verbose)
+      : gz_ibd_in(gzFile_ibd_in), gz_ibd_out(gzFile_ibd_out),
+        max_lines(max_lines), vcf_ref(vcf), gmap_ref(gmap),
+        max_disc_sites(max_disc_sites), max_cM(max_cM), verbose(verbose) {
+    vSid1.reserve(max_lines);
+    vSid2.reserve(max_lines);
+    vStarts.reserve(max_lines);
+    vEnds.reserve(max_lines);
+    vRange.reserve(max_lines);
+    field.reserve(1000);
+    gz_ibd_in_eof = false;
+    merged_count = 0;
+    printed_count = 0;
   }
 
-  ~IbdRec() {
-    int ret;
-    if (out_file != Z_NULL) {
-      ret = gzclose(out_file);
-      if (ret != Z_OK) {
-        cerr << "Close file failured with code: " << ret << '\n';
-        exit(1);
-      }
-    }
-  }
+  ~IbdMerger() {}
 
-  int read_rec(gzFile &fp) {
-    char buf[1000];
-    if (Z_NULL == gzgets(fp, buf, 1000))
-      return -1;
-    else {
-      line = buf;
+  bool is_ibd_in_eof() { return gz_ibd_in_eof; }
+
+  void read_sorted_ibd_into_buffer() {
+    char *gzret = NULL;
+  uint32_t sample_id1, sample_id2;
+    while (vStarts.size() < max_lines &&
+           (gzret = gzgets(gz_ibd_in, buffer, 1000)) != Z_NULL) {
       iss.clear();
-      iss.str(line);
-      getline(iss, sn1, ':');    // sample 1
-      getline(iss, sn2, '\t');   // sample 1
-      getline(iss, field, '\t'); // start_pos
-      s_pos = stoul(field);
-      getline(iss, field, '\t'); // end_pos
-      e_pos = stoul(field);
+      iss.str(buffer);
+      getline(iss, field, ':');
+      sample_id1 = vcf_ref.sample.name2id_map.at(field);
+      getline(iss, field, '\t');
+      sample_id2 = vcf_ref.sample.name2id_map.at(field);
+      // sample names are only saved when there is a new pair of samples,
+      // and the vIndex saves the starting index for each sample pair
+      if (vSid1.size() == 0 || *(vSid1.end() - 1) != sample_id1 ||
+          *(vSid2.end() - 1) != sample_id2) {
+        vSid1.push_back(sample_id1);
+        vSid2.push_back(sample_id2);
+        vIndex.push_back(vStarts.size());
+      }
+      // bp positions are saved for each record.
+      getline(iss, field, '\t');
+      vStarts.push_back(stoul(field));
+      getline(iss, field, '\t');
+      vEnds.push_back(stoul(field));
+    };
 
-      sample_id1 = -1;
-      sample_id2 = -1;
-
-      return 0;
+    if (gzeof(gz_ibd_in))
+      gz_ibd_in_eof = true;
+    else if (gzret == Z_NULL) {
+      cerr << "Error on gzgets!\n";
+      exit(1);
     }
   }
 
-  void calc_sample_id() {
-    sample_id1 = vcf_ref.sample.get_sample_id(sn1.c_str());
-    sample_id2 = vcf_ref.sample.get_sample_id(sn2.c_str());
-  }
-
-  void calc_sample_id(IbdRec &prev_rec) {
-    if (prev_rec.sn1 == sn1 && prev_rec.sn2 == sn2) {
-      sample_id1 = prev_rec.sample_id1;
-      sample_id2 = prev_rec.sample_id2;
-
-    } else {
-      sample_id1 = vcf_ref.sample.get_sample_id(sn1.c_str());
-      sample_id2 = vcf_ref.sample.get_sample_id(sn2.c_str());
+  void write_merged_ibd_to_file() {
+    // last merged sample pair_id
+    uint32_t num_sam_pair, sp_id, num_rec, end_id, end_rec_id, rec_id;
+    float cM;
+    num_sam_pair = vIndex.size();
+    num_rec = vStarts.size();
+    end_id = gz_ibd_in_eof ? num_sam_pair : (num_sam_pair - 1);
+    for (sp_id = 0; sp_id < end_id; sp_id++) {
+      string &sn1 = vcf_ref.sample.name_vec.at(vSid1[sp_id]);
+      string &sn2 = vcf_ref.sample.name_vec.at(vSid2[sp_id]);
+      end_rec_id = (sp_id == num_sam_pair - 1) ? num_rec : vIndex[sp_id + 1];
+      for (rec_id = vIndex[sp_id]; rec_id < end_rec_id; rec_id++) {
+        uint32_t &s_pos = vStarts[rec_id];
+        uint32_t &e_pos = vEnds[rec_id];
+        if (s_pos != UINT32T_EMPTY) {
+          cM = gmap_ref.get_cm(e_pos) - gmap_ref.get_cm(s_pos);
+          if (gz_ibd_out == Z_NULL)
+            cout << sn1 << '\t' << sn2 << '\t' << s_pos << '\t' << e_pos << '\t'
+                 << cM << '\n';
+          else
+            gzprintf(gz_ibd_out, "%s\t%s\t%lu\t%lu\t%0.5g\n", sn1.c_str(),
+                     sn2.c_str(), s_pos, e_pos, cM);
+          printed_count++;
+        } else {
+          merged_count++;
+        }
+      }
+    }
+    // verbose output to cerr
+    if (verbose)
+      cerr << "\r    Merged segment: " << merged_count
+           << "; printed segment: " << printed_count;
+    // recycle un-processed records.
+    if (!gz_ibd_in_eof) {
+      // only keep the last elements
+      vSid1.erase(vSid1.begin(), vSid1.end() - 1);
+      vSid2.erase(vSid2.begin(), vSid2.end() - 1);
+      // only keep records for last sample pair
+      vStarts.erase(vStarts.begin(),
+                    vStarts.begin() + vIndex[num_sam_pair - 1]);
+      vEnds.erase(vEnds.begin(), vEnds.begin() + vIndex[num_sam_pair - 1]);
+      // only one index point to 0
+      vIndex.resize(1, 0);
     }
   }
 
-  bool is_discordant_site_greater_than(IbdRec &prev_rec, int max_disc_sites) {
+  void print_counters() {
+    cerr << "\n    Merged segment: " << merged_count
+         << "; printed segment: " << printed_count;
+  }
+
+  bool is_discordant_excessive(uint32_t sample_id1, uint32_t sample_id2,
+                               uint32_t left_bp_pos, uint32_t right_bp_pos) {
+    vector<uint32_t> &bp_vec = vcf_ref.variant.bp_vec;
+    Genotypes &genotype = vcf_ref.genotype;
+
+    // cal position ids between (left_bp_pos, right_bp_pos)
+    assert(left_bp_pos <= right_bp_pos);
+    auto left = upper_bound(bp_vec.begin(), bp_vec.end(), left_bp_pos);
+    auto right = lower_bound(bp_vec.begin(), bp_vec.end(), right_bp_pos);
+    auto first_pos_id = distance(bp_vec.begin(), left);
+    auto last_pos_id = distance(bp_vec.begin(), right);
+
     int n_discordant = 0;
-    auto [left, right] =
-        vcf_ref.variant.get_pos_id_between(prev_rec.e_pos, s_pos);
-    for (uint32_t pos_id = left; pos_id < right; pos_id++) {
+    for (uint32_t pos_id = first_pos_id; pos_id < last_pos_id; pos_id++) {
       int a0, a1, b0, b1;
-      a0 = vcf_ref.genotype.get_allele(pos_id, sample_id1, 0);
-      a1 = vcf_ref.genotype.get_allele(pos_id, sample_id1, 1);
-      b0 = vcf_ref.genotype.get_allele(pos_id, sample_id2, 0);
-      b1 = vcf_ref.genotype.get_allele(pos_id, sample_id2, 1);
+      a0 = genotype.get_allele(pos_id, sample_id1, 0);
+      a1 = genotype.get_allele(pos_id, sample_id1, 1);
+      b0 = genotype.get_allele(pos_id, sample_id2, 0);
+      b1 = genotype.get_allele(pos_id, sample_id2, 1);
       if (a0 == a1 && b0 == b1 && a1 != b1 && a1 != 0 && b1 != 0) {
         n_discordant++;
         if (n_discordant > max_disc_sites)
@@ -451,46 +505,52 @@ public:
     return false;
   }
 
-  float get_cm_dist_from_prev_rec(IbdRec &prev_rec) {
-    return gmap_ref.get_cm(s_pos) - gmap_ref.get_cm(prev_rec.e_pos);
-  }
+  void merge_for_sample_pair(uint32_t i) {
+    uint32_t first, last; // [inclusive, non-includsive)
+    uint32_t bp_pos1, bp_pos2;
+  uint32_t sample_id1, sample_id2;
+    first = vIndex[i];
+    last = (i == vIndex.size() - 1) ? vStarts.size() : vIndex[i + 1];
+    sample_id1 = vSid1[i];
+    sample_id2 = vSid2[i];
 
-  void print_rec() {
-    float cM = gmap_ref.get_cm(e_pos) - gmap_ref.get_cm(s_pos);
-    if (out_file == Z_NULL)
-      cout << sn1 << '\t' << sn2 << '\t' << s_pos << '\t' << e_pos << '\t' << cM
-           << '\n';
-    else
-      gzprintf(out_file, "%s\t%s\t%lu\t%lu\t%0.5g\n", sn1.c_str(), sn2.c_str(),
-               s_pos, e_pos, cM);
-  }
-
-  bool check_and_merge(IbdRec &prev_rec, float max_cM, int max_disc_sites) {
-    bool is_merged = false;
-    if (sn1 == prev_rec.sn1 &&
-        sn2 == prev_rec.sn2 &&      // if not the same sample pair, won't merge
-        (prev_rec.e_pos >= s_pos || // overlapping, merge
-         (get_cm_dist_from_prev_rec(prev_rec) <
-              max_cM &&                     // no overlapping but close and
-          !is_discordant_site_greater_than( // has less than 1 discordance sites
-              prev_rec, max_disc_sites)))) {
-
-      if (prev_rec.e_pos < e_pos)
-        prev_rec.e_pos = e_pos; // if merge, keep the larger end
-
-      is_merged = true;
-    } else {
-      prev_rec.print_rec();
-      is_merged = false;
+    // j point to prev record; k point to curr record;
+    for (uint32_t j = first, k = first + 1; k < last; k++) {
+      bp_pos1 = vEnds[j];
+      bp_pos2 = vStarts[k];
+      // if overlapping or non-overlapping but close enough and have discord
+      // sites no greater than threshold, then merge
+      if (bp_pos1 >= bp_pos2 ||
+          ((gmap_ref.get_cm(bp_pos2) - gmap_ref.get_cm(bp_pos1) < max_cM) &&
+           !is_discordant_excessive(sample_id1, sample_id2, bp_pos1,
+                                    bp_pos2))) {
+        // merge k record into j record, mark k's start pos to UINT32T_EMPTY to
+        // represent empty record
+        vEnds[j] = vEnds[j] > vEnds[k] ? vEnds[j] : vEnds[k];
+        vStarts[k] = UINT32T_EMPTY;
+      } else {
+        // no merge, than use k as the prev record
+        j = k;
+      }
     }
-    return is_merged;
+  }
+
+  void merge_ibd_in_buffer() {
+    // Not using the the last element because the groups of ibd belonging to
+    // this pair may be completed readin if not at the end of file
+    vRange.resize(vIndex.size());
+    iota(vRange.begin(), vRange.end(), 0);
+
+    if (!gz_ibd_in_eof)
+      for_each(execution::par, vRange.begin(), vRange.end() - 1,
+               [this](uint32_t i) { this->merge_for_sample_pair(i); });
+    else
+      for_each(execution::par, vRange.begin(), vRange.end(),
+               [this](uint32_t i) { this->merge_for_sample_pair(i); });
   }
 };
 
 int main(int argc, char *argv[]) {
-  int ret;
-  uint64_t merge_count = 0, print_count = 0;
-
   struct arguments arguments;
   arguments.max_cM = 0.6;
   arguments.discord = 1;
@@ -505,39 +565,49 @@ int main(int argc, char *argv[]) {
   ios_base::sync_with_stdio(false);
   GeneticMap gmap;
   gmap.parse_genetic_map(arguments.map_fn);
+  size_t mem_use_estimate = 0;
 
   Vcf vcf;
   vcf.verbose = arguments.verbose;
   vcf.parse_vcf(arguments.vcf_fn);
   vcf.variant.calc_genetic_pos(gmap);
 
-  IbdRec rec1(vcf, gmap, arguments.out_fn), rec2(vcf, gmap, arguments.out_fn);
-  IbdRec *prev = &rec1, *curr = &rec2, *tmp = NULL;
+  mem_use_estimate += vcf.mem_use_estimate;
 
-  gzFile fp = gzopen(arguments.ibd_fn, "r");
+  gzFile fp_in = gzopen(arguments.ibd_fn, "r");
+  gzFile fp_out = Z_NULL;
+  if (strcmp(arguments.out_fn, "stdout") != 0) {
+    fp_out = gzopen(arguments.out_fn, "w");
+    gzbuffer(fp_out, 1024 * 1024 * 100);
+  }
+
+  FILE *fp_tmp = fopen(arguments.ibd_fn, "r");
+  fseek(fp_tmp, 0, SEEK_END);
+  size_t file_size = ftell(fp_tmp);
+  fclose(fp_tmp);
+  size_t max_lines = 100000000;
+  if (file_size /20 < max_lines) max_lines = file_size/20;
+
+  IbdMerger ibdmerger(fp_in, fp_out, max_lines, arguments.discord,
+                      arguments.max_cM, vcf, gmap, arguments.verbose);
+  mem_use_estimate += max_lines * (15 + 15 + 4 + 4) + 1024 * 1024 + 100;
+  if (arguments.verbose) {
+    cerr << "\n    Estimated memory usage: "
+         << 1.0 * mem_use_estimate / 1024 / 1024 / 1024 << "  Gb\n";
+  }
 
   cerr << "Merging IBD segments... \n";
-  prev->read_rec(fp);
-  prev->calc_sample_id();
-  while (curr->read_rec(fp) == 0) {
-    curr->calc_sample_id(*prev);
-    ret = curr->check_and_merge(*prev, arguments.max_cM, arguments.discord);
-    if (ret == true) {
-      merge_count++;
-    } else {
-      tmp = prev;
-      prev = curr;
-      curr = tmp;
-      print_count++;
-    }
-    if ((merge_count + print_count) % 1000000 == 0)
-      cerr << "\r    Merged segment: " << merge_count
-           << "; printed segment: " << print_count;
+  while (!ibdmerger.is_ibd_in_eof()) {
+    ibdmerger.read_sorted_ibd_into_buffer();
+    ibdmerger.merge_ibd_in_buffer();
+    ibdmerger.write_merged_ibd_to_file();
   }
-  prev->print_rec();
-  cerr << "\n    Done merging. Merged: " << merge_count
-       << ", printed: " << print_count << '\n';
+  ibdmerger.print_counters();
+  cerr << "\n    Done merging IBD segments! \n";
 
-  gzclose(fp);
+  if (fp_in != Z_NULL)
+    gzclose(fp_in);
+  if (fp_out != Z_NULL)
+    gzclose(fp_out);
   return 0;
 }
