@@ -22,7 +22,7 @@ using namespace std;
 // -----------------------------------------
 // For argument parsing
 
-const char *argp_program_version = "ibdmerge 0.1";
+const char *argp_program_version = "ibdmerge 0.2";
 const char *argp_program_bug_address = "gbinux@gmail.com";
 static char doc[] =
     "ibdmerge merges IBD segments following Browning's tool "
@@ -34,7 +34,8 @@ static struct argp_option options[] = {
      "IBD files with format `sn1:sn2\tstart\tend...`, sorted by sort -k1,1 "
      "-k2,2n -k3,3n"},
     {"VCF_FILE", 1, 0, OPTION_DOC | OPTION_NO_USAGE,
-     "VCF file (tab delimited) used to call IBD. The VCF file is expected to only have "
+     "VCF file (tab delimited) used to call IBD. The VCF file is expected to "
+     "only have "
      "biallelic sites"},
     {"MAP_FILE", 1, 0, OPTION_DOC | OPTION_NO_USAGE,
      "MAP file (space delimited) used to call IBD"},
@@ -394,7 +395,7 @@ public:
 
   void read_sorted_ibd_into_buffer() {
     char *gzret = NULL;
-  uint32_t sample_id1, sample_id2;
+    uint32_t sample_id1, sample_id2;
     while (vStarts.size() < max_lines &&
            (gzret = gzgets(gz_ibd_in, buffer, 1000)) != Z_NULL) {
       iss.clear();
@@ -508,7 +509,7 @@ public:
   void merge_for_sample_pair(uint32_t i) {
     uint32_t first, last; // [inclusive, non-includsive)
     uint32_t bp_pos1, bp_pos2;
-  uint32_t sample_id1, sample_id2;
+    uint32_t sample_id1, sample_id2;
     first = vIndex[i];
     last = (i == vIndex.size() - 1) ? vStarts.size() : vIndex[i + 1];
     sample_id1 = vSid1[i];
@@ -537,7 +538,7 @@ public:
 
   void merge_ibd_in_buffer() {
     // Not using the the last element because the groups of ibd belonging to
-    // this pair may be completed readin if not at the end of file
+    // this pair may be not completedly read when EOF is not reached.
     vRange.resize(vIndex.size());
     iota(vRange.begin(), vRange.end(), 0);
 
@@ -586,7 +587,8 @@ int main(int argc, char *argv[]) {
   size_t file_size = ftell(fp_tmp);
   fclose(fp_tmp);
   size_t max_lines = 100000000;
-  if (file_size /20 < max_lines) max_lines = file_size/20;
+  if (file_size / 20 < max_lines)
+    max_lines = file_size / 20;
 
   IbdMerger ibdmerger(fp_in, fp_out, max_lines, arguments.discord,
                       arguments.max_cM, vcf, gmap, arguments.verbose);
