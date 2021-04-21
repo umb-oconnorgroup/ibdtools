@@ -2,7 +2,7 @@
 
 CHR=10
 # 1 reformat for input and run hap-ibd
-time cat test/example.ibd | tr ':' '\t' \
+time cat test/example.ibd \
 	| awk -v OFS='\t' -v chr=$CHR '{print $1, 1, $2, 2, chr, $3, $4, $5}' \
 	\
 	\
