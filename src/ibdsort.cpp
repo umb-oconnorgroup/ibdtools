@@ -407,8 +407,8 @@ public:
     tmp_file.num_rec += distance(first, last);
     cerr << "DUMPED VECTOR to file # " << tmp_file.fid
          << "\t# of record: " << distance(first, last)
-         << "\tfirst record: " << *first
-         << "\tlast record: " << *(last - 1) << '\n';
+         << "\tfirst record: " << *first << "\tlast record: " << *(last - 1)
+         << '\n';
     vec.resize(0);
   }
 
@@ -525,11 +525,12 @@ public:
                << vec_sample_names[min_rec.id2] << '\t' << min_rec.start << '\t'
                << min_rec.end << '\n';
         // cout << "COUT: " << rec << '\n';
-        else
-          gzprintf(gzf_ibd_out, "%s:%s\t%lu\t%lu\n",
+        else {
+          gzprintf(gzf_ibd_out, "%s\t%s\t%lu\t%lu\n",
                    vec_sample_names[kblock_info.it->id1].c_str(),
                    vec_sample_names[kblock_info.it->id2].c_str(),
                    kblock_info.it->start, kblock_info.it->end);
+        }
         num_out_rec++;
       }
 
@@ -595,7 +596,12 @@ public:
       vec_tmp_file_new.resize(0);
     }
 
-    // last pass
+    // last pass.
+    // If not use vec_out buffer, release it and set the gzbuffer
+    if (gzf_ibd_out == Z_NULL) {
+      vec_out.resize(0);
+      vec_out.shrink_to_fit();
+    }
     merge_K_chunks(vec_tmp_file.begin(), vec_tmp_file.end(), true);
 
     cerr << "Total # output record: " << num_out_rec << '\n';
@@ -622,6 +628,8 @@ int main(int argc, char *argv[]) {
   fp_ibd_in = gzopen(arguments.ibd_in_fn, "r");
   assert(fp_ibd_in != Z_NULL);
 
+  max_lines = arguments.mem_in_gb * 1024 * 1024 * 1024 / sizeof(ibdrec_t);
+
   if (arguments.ibd_out_fn) {
     fp_ibd_out = gzopen(arguments.ibd_out_fn, "w");
     assert(fp_ibd_out != Z_NULL);
@@ -634,8 +642,6 @@ int main(int argc, char *argv[]) {
     assert(fp_sample != Z_NULL);
   } else
     fp_sample = Z_NULL;
-
-  max_lines = arguments.mem_in_gb * 1024 * 1024 * 1024 / sizeof(ibdrec_t);
 
   IbdSorter ibdsorter(max_lines, arguments.kways, fp_ibd_in, fp_ibd_out,
                       fp_sample, arguments.tmp_file_prefix,

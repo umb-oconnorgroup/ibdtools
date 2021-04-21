@@ -20,7 +20,6 @@ java -Xmx5G -jar data/hap-ibd.jar gt=test/example.vcf map=test/example.map out=h
 
 
 zcat hapibd.ibd.gz | cut -f 1,3,6,7,8 | sort -k1,1 -k2,2 -k3,3n -k4,4n \
-	| awk -v OFS='\t' '{print $1 ":" $2, $3, $4, $5}' \
 	> test/example.ibd
 
 rm hapibd*.gz hapibd*.log
