@@ -28,6 +28,10 @@ build/ibdmerge : src/ibdmerge.cpp
 	if [ ! -d build ]; then mkdir build; fi
 	${CC} ${FLAGS} src/ibdmerge.cpp -o build/ibdmerge ${INC_PATH} ${LIB_PATH} ${LIBS}
 
+build/ibdtotal : src/ibdtotal.cpp
+	if [ ! -d build ]; then mkdir build; fi
+	${CC} ${FLAGS} src/ibdtotal.cpp -o build/ibdtotal ${INC_PATH} ${LIB_PATH} ${LIBS}
+
 test_ibdsort: build/ibdsort
 	build/ibdsort test/example_shuffled.ibd -s test/example_sample_name.txt -m 0.000016000 -k 3  > ./test/example_sort.ibd
 	awk -v OFS='\t' '{if($$1 > $$3){tmp=$$3; $$3=$$1; $$1=tmp;} print $$1, $$3, $$6, $$7}' ./test/example_shuffled.ibd | sort -k1,1 -k2,2 -k3,3n -k4,4n > test/example_sort_cmd.ibd
@@ -45,3 +49,8 @@ test_ibdmerge: build/ibdmerge
 		> test/merged.ibd
 	./test/cmp2browning.sh
 
+test_ibdtotal: build/ibdtotal
+	build/ibdtotal test/example_sample_name.txt test/total.out -i test/example.ibd 
+	build/ibdtotal test/example_sample_name.txt test/total.out2 -i test/example.ibd \
+		-m test/total.out
+	test/test_ibdtotal.py

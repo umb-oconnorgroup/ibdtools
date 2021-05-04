@@ -80,3 +80,27 @@ This is written to handle large datasets.
       --usage                Give a short usage message
   -V, --version              Print program version
 ```
+
+## `ibdtotal`
+
+```
+Usage: ibdtotal [OPTION...] SAMPLE_FILE OUT_FILE
+Summarize sample-pair total ibd and save it to a binary matrix.
+Total IBD length is converted to integers with a unit of 0.1cM.
+
+ Required arguments:
+  OUT_FILE                   binary file to save the lower trigular total IBD
+                             matrix
+  SAMPLE_FILE                sample file that list all samples in IBD files,
+                             one line per sample
+
+ Optional arguments: at least one of -i or -m should be specified
+  -i, --IBD_file=FILE        IBD file with a format of  5 columns delimited by
+                             tabs. Columns are sn1, sn2, start_bp, end_bp,
+                             length_in_cM
+  -m, --Matrix_files=FILE [FILE...]
+                             Existing Ibd matrix file to combine; can be used
+                             to merge with partial total IBD matrix calculated
+                             from other chromosomes. ATTENTION: -m option
+                             should be specified at the END!!
+```
