@@ -568,7 +568,7 @@ public:
     }
 
     // flush out buffer to file when the above loop is done
-    if (!is_final_pass || !use_stdout)
+    if (!is_final_pass && !use_stdout)
       flush_out_buffer(tmp_file);
 
     return tmp_file;
