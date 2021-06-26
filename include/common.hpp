@@ -9,6 +9,7 @@
 #include <charconv>
 #include <chrono>
 #include <filesystem>
+#include <fmt/core.h>
 #include <fstream>
 #include <iostream>
 #include <istream>
@@ -20,7 +21,6 @@
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
-#include <fmt/core.h>
 
 struct ibd_rec2_t {
     // data member
@@ -175,17 +175,27 @@ struct __attribute__((packed)) ibd_rec1_t {
 
     ibd_rec1_t(ibd_rec2_t &r2)
     {
-        *(uint64_t *) ((uint16_t *) this + 1) |= r2.sid1;
+        /* This cause pid2 incorrect; don't know why
+        *((uint16_t *) this) = (r2.pid2 & 0x3fff)<< 2;
+        *((uint16_t *) this) |= ((r2.hid1 << 1) + r2.hid2);
+
+        *(uint64_t *) ((uint16_t *) this + 1) = r2.sid1;
         *(uint64_t *) ((uint16_t *) this + 1) <<= 19;
         *(uint64_t *) ((uint16_t *) this + 1) |= r2.sid2;
         *(uint64_t *) ((uint16_t *) this + 1) <<= 20;
         *(uint64_t *) ((uint16_t *) this + 1) |= r2.pid1;
         *(uint64_t *) ((uint16_t *) this + 1) <<= 6;
         *(uint64_t *) ((uint16_t *) this + 1) |= (r2.pid2 >> 14);
+    */
 
-        ((uint16_t *) this)[0] |= (r2.pid2 & 0x3fff);
-        ((uint16_t *) this)[0] <<= 2;
-        ((uint16_t *) this)[0] |= ((r2.hid1 << 1) + r2.hid2);
+        // this works but slowwer
+        sid1 = r2.sid1;
+        hid1 = r2.hid1;
+        sid2 = r2.sid2;
+        hid2 = r2.hid2;
+        pid1 = r2.pid1;
+        pid2_l = (r2.pid2 & 0x3fff);
+        pid2_h = (r2.pid2 >> 14);
     }
     // getter
     uint32_t
@@ -216,7 +226,7 @@ struct __attribute__((packed)) ibd_rec1_t {
     uint32_t
     get_pid2() const
     {
-        return (pid2_h << 14) + pid2_l;
+        return ((uint32_t) pid2_h << 14) + pid2_l;
     }
 
     // setter
@@ -264,9 +274,12 @@ struct __attribute__((packed)) ibd_rec1_t {
     friend bool
     operator<(const ibd_rec1_t &rec1, const ibd_rec1_t &rec2)
     {
-        if (*((uint64_t *) &rec1) != *((uint64_t *) &rec2))
-            return *((uint64_t *) &rec1) < *(uint64_t *) &rec2;
-        return ((uint16_t *) &rec1)[4] < ((uint16_t *) &rec1)[4];
+        if (*((uint64_t *) ((uint16_t *) &rec1 + 1))
+            != *((uint64_t *) ((uint16_t *) &rec2 + 1)))
+            return *((uint64_t *) ((uint16_t *) &rec1 + 1))
+                   < *((uint64_t *) ((uint16_t *) &rec2 + 1));
+
+        return ((uint16_t *) &rec1)[0] < ((uint16_t *) &rec2)[0];
     }
 
     // equal operator
