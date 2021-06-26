@@ -16,7 +16,7 @@ class IbdFile
     // buffer
     std::vector<ibd_rec1_t> ibd_vec;
 
-    // reference
+    // pointer
     MetaFile *meta;
 
   public:
@@ -43,6 +43,12 @@ class IbdFile
     get_fp()
     {
         return fp;
+    }
+
+    MetaFile &
+    get_meta()
+    {
+        return *meta;
     }
 
     void
@@ -77,7 +83,7 @@ class IbdFile
             // std::cout << "ibdfile closed for reading\n";
         } else {
             if (fp->is_compressed)
-               assert(bgzf_index_dump(fp, filename.c_str(), ".gzi") == 0);
+                assert(bgzf_index_dump(fp, filename.c_str(), ".gzi") == 0);
             bgzf_close(fp);
             // std::cout << "ibdfile closed for reading\n";
         }
@@ -227,7 +233,6 @@ class IbdFile
 
                     //	std::cout << "+" << line_buffer.size() << '\n';
                 }
-
             }
 
         } while (did_vec_read_full);
@@ -376,6 +381,14 @@ class IbdFile
         head(5);
         std::cout << "... \n";
         tail(5);
+    }
+
+    void print_to_file(std::ofstream & ofs)
+    {
+        for (auto rec: ibd_vec) {
+            ofs << rec.get_sid1() << '\t' << rec.get_sid2() << '\t'
+                      << rec.get_pid1() << '\t' << rec.get_pid2() << '\n';
+        }
     }
 };
 
