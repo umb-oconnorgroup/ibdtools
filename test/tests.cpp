@@ -1,4 +1,5 @@
 #include "../include/ibdfile.hpp"
+#include "../include/ibdmerger.hpp"
 #include "../include/ibdsorter.hpp"
 #include "../include/metafile.hpp"
 #include <algorithm>
@@ -10,9 +11,11 @@
 const char *map_fn = "../data/example.map";
 const char *vcf_fn = "../data/example.bcf.gz";
 const char *haps_fn = "../data/example_haplotypes.txt.gz";
-const char *ibd_in_file = "../data/example.ibd.gz";
+const char *ibd_txt_fn = "../data/example.ibd.gz";
+const char *browning_merged = "../data/merged_browning.ibd.gz";
 const char *temp_file = "tmp.gz";
 const char *temp_file2 = "tmp2.gz";
+const char *temp_file3 = "tmp3.gz";
 
 // ksplit seems to alloc new ids buffer everytime. Bad;
 // //
@@ -261,7 +264,7 @@ test_ibdfile_encode_raw_ibd()
 
     IbdFile ibdfile1(temp_file, &meta);
     ibdfile1.open("w");
-    ibdfile1.from_raw_ibd(ibd_in_file);
+    ibdfile1.from_raw_ibd(ibd_txt_fn);
     ibdfile1.close();
     // debug
     // return;
@@ -298,7 +301,7 @@ test_ibdfile_decode_pakced_ibd()
 
     IbdFile ibdfile1(temp_file, &meta);
     ibdfile1.open("w");
-    ibdfile1.from_raw_ibd(ibd_in_file); // encode from raw ibd file to temp_file
+    ibdfile1.from_raw_ibd(ibd_txt_fn); // encode from raw ibd file to temp_file
     ibdfile1.close();
 
     IbdFile ibdfile2(temp_file, &meta);
@@ -482,48 +485,116 @@ test_move_default_move_constructor()
 void
 test_ibdsorter()
 {
+    // meta
     MetaFile meta;
     meta.parse_files(vcf_fn, map_fn, true);
 
+    // read from raw ibd and encode into binary file
     IbdFile ibdfile1(temp_file, &meta);
     ibdfile1.open("wu");
-    ibdfile1.from_raw_ibd(ibd_in_file, 0, 1, 2, 3);
+    ibdfile1.from_raw_ibd(ibd_txt_fn);
     ibdfile1.close();
 
+    // sort the binary file and  write to sorted binary file
     std::string out_prefix = temp_file2;
     out_prefix += "_temp_";
     IbdSorter sorter(temp_file, temp_file2, "wu", out_prefix.c_str(), 1000);
-    {
-        ScopedTimer timer("sort_into_chunks");
-        sorter.sort_into_chunks();
-    }
-    {
-        ScopedTimer timer("merge_chunks");
-        sorter.merge_chunks(3);
-    }
+    sorter.sort_into_chunks();
+    sorter.merge_chunks(3);
 
+    // read sorted and unsorted file
     IbdFile file_orig(temp_file, NULL);
     file_orig.open("r");
     IbdFile file_sort(temp_file2, NULL);
     file_sort.open("r");
 
-    {
-        ScopedTimer timer("read_from_file");
-        file_orig.read_from_file();
-        file_sort.read_from_file();
-    }
+    file_orig.read_from_file();
+    file_sort.read_from_file();
 
     file_orig.close();
     file_sort.close();
 
+    // sort the unsored in memory
     auto &orig_vec = file_orig.get_vec();
     std::sort(orig_vec.begin(), orig_vec.end());
 
+    // compare with external sorted file
     std::cout << "orig:  " << orig_vec.size() << '\n';
     file_orig.summary();
     std::cout << "sort:  " << file_sort.get_vec().size() << '\n';
     file_sort.summary();
     std::cout << "orig == sort? " << (orig_vec == file_sort.get_vec()) << '\n';
+}
+
+void
+test_ibdmerger()
+{
+    MetaFile meta;
+    meta.parse_files(vcf_fn, map_fn, true, "10");
+
+    IbdFile ibdfile1(temp_file, &meta);
+    ibdfile1.open("wu");
+    ibdfile1.from_raw_ibd(ibd_txt_fn);
+    ibdfile1.close();
+
+    BGZF *fp = bgzf_open("meta.gz", "w");
+    meta.write_to_file(fp);
+    bgzf_close(fp);
+
+    std::string out_prefix = temp_file2;
+    out_prefix += "_temp_";
+    IbdSorter sorter(temp_file, temp_file2, "wu", out_prefix.c_str(), 1000);
+    sorter.sort_into_chunks();
+    sorter.merge_chunks(3);
+
+    MetaFile meta2;
+    meta.parse_files(vcf_fn, map_fn, true, "10");
+    // read merged file
+    IbdFile sorted_here(temp_file2, &meta2);
+    sorted_here.open("r");
+    sorted_here.read_from_file(false);
+    sorted_here.close();
+
+    std::cout << "sorted_here :\n";
+    sorted_here.summary();
+
+    IbdMerger merger(temp_file2, temp_file3, "wu", "meta.gz", 100);
+    merger.merge();
+
+    // read merged file
+    IbdFile merged_here(temp_file3, &meta);
+    merged_here.open("r");
+    merged_here.read_from_file(false);
+    merged_here.close();
+
+    // encode from brownning's merge txt file
+    IbdFile merged_browning("/dev/null", &meta);
+    merged_browning.open("wu");
+    merged_browning.from_raw_ibd(browning_merged);
+    merged_browning.close();
+
+    // set hap bits to 0
+    for (auto &x : merged_browning.get_vec()) {
+        x.hid1 = 0;
+        x.hid2 = 0;
+    }
+    auto & vec = merged_browning.get_vec();
+    std::sort(vec.begin(), vec.end());
+
+    // compare
+    std::cout << "ibdmerger == brownning's tool: "
+              << (merged_here.get_vec() == merged_browning.get_vec()) << '\n';
+
+    std::cout << "ibdmerger summary:\n";
+    merged_here.summary();
+
+    std::cout << "brownning summary:\n";
+    merged_browning.summary();
+
+    // std::ofstream ofs1("1.txt");
+    // std::ofstream ofs2("2.txt");
+    // merged_here.print_to_file(ofs1);
+    // merged_browning.print_to_file(ofs2);
 }
 
 void
@@ -605,8 +676,9 @@ main()
     // test_tournament_tree();
     // test_bgzf_write();
     // test_move_default_move_constructor();
-    //  test_ibdsorter();
+     // test_ibdsorter();
     // test_auto_variable();
     // test_bit_fields();
-    test_ibdfile_decode_pakced_ibd();
+    // test_ibdfile_decode_pakced_ibd();
+     test_ibdmerger();
 }
