@@ -175,8 +175,10 @@ struct __attribute__((packed)) ibd_rec1_t {
 
     ibd_rec1_t(ibd_rec2_t &r2)
     {
-        /* This cause pid2 incorrect; don't know why
-        *((uint16_t *) this) = (r2.pid2 & 0x3fff)<< 2;
+        // this works but need to make sure that the assigned value will not overflow the
+        // bit
+        // fields
+        *((uint16_t *) this) = (r2.pid2 & 0x3fff) << 2;
         *((uint16_t *) this) |= ((r2.hid1 << 1) + r2.hid2);
 
         *(uint64_t *) ((uint16_t *) this + 1) = r2.sid1;
@@ -186,9 +188,9 @@ struct __attribute__((packed)) ibd_rec1_t {
         *(uint64_t *) ((uint16_t *) this + 1) |= r2.pid1;
         *(uint64_t *) ((uint16_t *) this + 1) <<= 6;
         *(uint64_t *) ((uint16_t *) this + 1) |= (r2.pid2 >> 14);
-    */
 
-        // this works but slowwer
+        /*
+        // this works but slower
         sid1 = r2.sid1;
         hid1 = r2.hid1;
         sid2 = r2.sid2;
@@ -196,6 +198,16 @@ struct __attribute__((packed)) ibd_rec1_t {
         pid1 = r2.pid1;
         pid2_l = (r2.pid2 & 0x3fff);
         pid2_h = (r2.pid2 >> 14);
+    */
+
+        /*  // for debug
+        if(!is_equal(*this, r2))
+        {
+            this->print();
+            r2.print();
+        }
+        assert(is_equal(*this, r2));
+        */
     }
     // getter
     uint32_t
@@ -204,7 +216,7 @@ struct __attribute__((packed)) ibd_rec1_t {
         return sid1;
     }
     uint8_t
-    get_hid1()
+    get_hid1() const
     {
         return hid1;
     }
@@ -214,7 +226,7 @@ struct __attribute__((packed)) ibd_rec1_t {
         return sid2;
     }
     uint8_t
-    get_hid2()
+    get_hid2() const
     {
         return hid2;
     }
@@ -269,6 +281,13 @@ struct __attribute__((packed)) ibd_rec1_t {
         ((uint16_t *) this)[4] = ~(uint16_t) 0;
     }
 
+    void
+    random()
+    {
+        int a = rand();
+        const size_t sz = sizeof(int);
+    }
+
     // less than operator
     // Sort by fields in the order of: sid1, sid2, pid1, pid2, hid1, hid2
     friend bool
@@ -282,12 +301,66 @@ struct __attribute__((packed)) ibd_rec1_t {
         return ((uint16_t *) &rec1)[0] < ((uint16_t *) &rec2)[0];
     }
 
+    // for debug
+    friend bool
+    is_less(const ibd_rec1_t &rec1, const ibd_rec1_t &rec2)
+    {
+
+        uint32_t a, b;
+        a = rec1.get_sid1();
+        b = rec2.get_sid1();
+        if (a != b)
+            return a < b;
+        a = rec1.get_sid2();
+        b = rec2.get_sid2();
+        if (a != b)
+            return a < b;
+        a = rec1.get_pid1();
+        b = rec2.get_pid1();
+        if (a != b)
+            return a < b;
+        a = rec1.get_pid2();
+        b = rec2.get_pid2();
+        if (a != b)
+            return a < b;
+        a = rec1.get_hid1();
+        b = rec2.get_hid1();
+        if (a != b)
+            return a < b;
+        a = rec1.get_hid2();
+        b = rec2.get_hid2();
+        return a < b;
+    }
+
     // equal operator
     friend bool
     operator==(const ibd_rec1_t &rec1, const ibd_rec1_t &rec2)
     {
         return (*((uint64_t *) &rec1) == *((uint64_t *) &rec2))
                && ((uint16_t *) &rec1)[4] == ((uint16_t *) &rec1)[4];
+    }
+
+    // for debug
+    friend bool
+    is_equal(const ibd_rec1_t &rec1, const ibd_rec1_t &rec2)
+    {
+
+        return rec1.get_sid1() == rec2.get_sid1() && rec1.get_sid2() == rec2.get_sid2()
+               && rec1.get_pid1() == rec2.get_pid1()
+               && rec1.get_pid2() == rec2.get_pid2()
+               && rec1.get_hid1() == rec2.get_hid1()
+               && rec1.get_hid2() == rec2.get_hid2();
+    }
+
+    friend bool
+    is_equal(const ibd_rec1_t &rec1, const ibd_rec2_t &rec2)
+    {
+
+        return rec1.get_sid1() == rec2.get_sid1() && rec1.get_sid2() == rec2.get_sid2()
+               && rec1.get_pid1() == rec2.get_pid1()
+               && rec1.get_pid2() == rec2.get_pid2()
+               && rec1.get_hid1() == rec2.get_hid1()
+               && rec1.get_hid2() == rec2.get_hid2();
     }
 
     bool
