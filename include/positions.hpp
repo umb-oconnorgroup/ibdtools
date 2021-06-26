@@ -28,8 +28,9 @@ class Positions
     add(uint32_t pos_bp, float pos_cm)
     {
         if (bp2id_map.find(pos_bp) != bp2id_map.end()) {
-            std::cerr
-                << "==> Warning: Duplicated position; only the first will be used!\n";
+            std::cerr << "==> Warning: Duplicated position; only the first will be used!"
+                      << " duplicated bp: " << pos_bp
+                      << " duplicated position id: " << bp2id_map[pos_bp] << '\n';
             return false;
         }
         size_t next_id = bp2id_map.size();
