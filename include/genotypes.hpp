@@ -44,6 +44,9 @@ class Genotypes
         // determine which 4 bits to use
         bool is_high_bits = (genotype_id & 0x1);
 
+        // std::cout << "byte_id: " << byte_id << "gt.size: " << genotype_vec.size()
+        //           << " ncol: " << ncol << " sid: " << sid << " pid: " << pid << '\n';
+
         // get the bype containing the 4 bits
         uint8_t res = genotype_vec[byte_id];
 
@@ -101,6 +104,7 @@ class Genotypes
     {
         write_vector_to_file(genotype_vec, fp);
         write_element_to_file(use_low_bits, fp);
+        write_element_to_file(ncol, fp);
     }
 
     void
@@ -108,6 +112,7 @@ class Genotypes
     {
         read_vector_from_file(genotype_vec, fp);
         read_element_from_file(use_low_bits, fp);
+        read_element_from_file(ncol, fp); // needed to calculate byte-id from sid and pid
     }
 
     bool
