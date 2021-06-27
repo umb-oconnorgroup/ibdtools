@@ -13,6 +13,8 @@ class IbdMerger
     IbdFile in;
     IbdFile out;
 
+    MetaFile meta;
+
     size_t max_rec_allowed_by_ram;
     std::string out_mode;
 
@@ -35,8 +37,10 @@ class IbdMerger
         : max_rec_allowed_by_ram(max_rec_allowed_by_ram), out_mode(out_mode),
           max_cm(max_cm), max_snp(max_snp)
     {
+        // MetaFile object can not be a local variable in this function. make it a
+	// member variable
+	//
         // read meta
-        MetaFile meta;
         BGZF *fp = bgzf_open(meta_fn, "r");
         assert(fp != NULL);
         meta.read_from_file(fp);
@@ -87,23 +91,23 @@ class IbdMerger
     size_t
     find_group_start(size_t id)
     {
-	    size_t id_o = id;
+        size_t id_o = id;
 
         auto &vec = in.get_vec();
         assert(id >= 0 && id < vec.size());
 
-	// if the same as the one above, move above
+        // if the same as the one above, move above
         while (id != 0 && vec[id - 1].is_same_pair(vec[id]))
             id--;
         assert(id >= 0 && id < vec.size());
 
         // std::cout << "id in: " << id_o;
         // std::cout << " id out: " << id << '\n';
-	// if(id_o != id && id!=0)
-	// {
-	// 	in.get_vec()[id-1].print();
-	// 	in.get_vec()[id].print();
-	// }
+        // if(id_o != id && id!=0)
+        // {
+        // 	in.get_vec()[id-1].print();
+        // 	in.get_vec()[id].print();
+        // }
 
         return id;
     }
@@ -130,8 +134,8 @@ class IbdMerger
         //
         // non overlapping
         //
-        Positions &pos = in.get_meta().get_positions();
-        Genotypes &gt = in.get_meta().get_genotypes();
+        Positions &pos = in.get_meta()->get_positions();
+        Genotypes &gt = in.get_meta()->get_genotypes();
         uint32_t sid1 = r1.get_sid1();
         uint32_t sid2 = r1.get_sid2();
         uint32_t prev_pid2 = r1.get_pid2();
