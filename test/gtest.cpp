@@ -612,27 +612,6 @@ test_bit_fields()
 int
 main(int argc, char **argv)
 {
-    // test_ibdrec();
-    // test_bgzf_getline_ksplit();
-    // test_gmap();
-    // test_vcffile();
-    // test_samples_read_write();
-    // test_positions_map();
-    // test_positions_read_write();
-    // test_chromosomes_read_write();
-    // test_get_haplotypes();
-    // test_metafile_read_write();
-    // test_GziFile();
-    // test_bgzf_index();
-    // test_string_view_splitter();
-    // test_tournament_tree();
-    // test_bgzf_write();
-    // test_move_default_move_constructor();
-    // test_ibdsorter();
-    // test_auto_variable();
-    // test_bit_fields();
-    // test_ibdfile_decode_pakced_ibd();
-    // test_ibdmerger();
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
