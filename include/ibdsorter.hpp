@@ -2,7 +2,7 @@
 #define __ibdsorter_hpp__
 #include "common.hpp"
 #include "ibdfile.hpp"
-#include <execution>
+// #include <execution>
 
 // Note:
 // Be sure to call constructor
@@ -156,7 +156,8 @@ class IbdSorter
             read_full = in.read_from_file(false);
 
             // sort
-            std::sort(std::execution::par_unseq, vec.begin(), vec.end());
+            // std::sort(std::execution::par_unseq, vec.begin(), vec.end());
+            std::sort(vec.begin(), vec.end());
 
             // debug
             // std::cout << "In file vector size: " << in.get_vec().size() << '\n';
