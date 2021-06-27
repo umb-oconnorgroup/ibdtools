@@ -17,12 +17,6 @@ class Positions
     Positions(int chrom_id_) : chrom_id(chrom_id_) {}
     Positions() {}
 
-    int
-    get_chrom_id()
-    {
-        return chrom_id;
-    }
-
     // @return false if pos_bp is duplicated; true otherwise
     bool
     add(uint32_t pos_bp, float pos_cm)
@@ -39,6 +33,12 @@ class Positions
         pos_bp_vec.push_back(pos_bp);
         pos_cm_vec.push_back(pos_cm);
         return true;
+    }
+
+    size_t
+    get_size() const
+    {
+        return pos_bp_vec.size();
     }
 
     int
@@ -62,6 +62,10 @@ class Positions
     float
     get_cm(uint32_t pid)
     {
+        //if (pid >= pos_cm_vec.size()) {
+        //    std::cerr << "Stoped at pid: " << pid << '\n';
+        //    print();
+        //}
         return pos_cm_vec[pid];
     }
 
