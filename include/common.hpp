@@ -657,6 +657,8 @@ class StringViewSplitter
     // @ max_fields_to_extract: 0 means all, >0 mean the number of fields try to
     // extract.
     // @ return: void. The output is updated in `vec` parameter
+    // @ internal empty field is parsed, the trailing delimiter will not parsed as an
+    // empty field
     template <typename T>
     void
     split_to_vector(std::string_view line_sv, std::vector<T> &vec, bool clear_vec = true,
