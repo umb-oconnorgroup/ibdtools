@@ -45,10 +45,10 @@ class IbdFile
         return fp;
     }
 
-    MetaFile &
+    MetaFile *
     get_meta()
     {
-        return *meta;
+        return meta;
     }
 
     void
@@ -82,7 +82,7 @@ class IbdFile
             bgzf_close(fp);
             // std::cout << "ibdfile closed for reading\n";
         } else {
-            if (fp->is_compressed)
+            if (fp->is_compressed && filename != "/dev/null")
                 assert(bgzf_index_dump(fp, filename.c_str(), ".gzi") == 0);
             bgzf_close(fp);
             // std::cout << "ibdfile closed for reading\n";
