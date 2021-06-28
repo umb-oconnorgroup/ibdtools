@@ -1,7 +1,8 @@
-#ifndef __positions_hpp
-#define __positions_hpp
+#ifndef __positions_hpp__
+#define __positions_hpp__
 
 #include "common.hpp"
+#include <algorithm>
 
 // Positions for a given chromosome
 class Positions
@@ -62,11 +63,83 @@ class Positions
     float
     get_cm(uint32_t pid)
     {
-        //if (pid >= pos_cm_vec.size()) {
+        // if (pid >= pos_cm_vec.size()) {
         //    std::cerr << "Stoped at pid: " << pid << '\n';
         //    print();
         //}
         return pos_cm_vec[pid];
+    }
+    std::vector<uint32_t>
+    get_window_counts(float window_in_cm = 2.0)
+    {
+        size_t max_cM = ceil(pos_cm_vec.back());
+        // get multiples
+        max_cM = ceil(max_cM / window_in_cm) * window_in_cm;
+
+        // init vector
+        std::vector<uint32_t> count_per_window;
+        count_per_window.resize(max_cM / window_in_cm);
+        std::fill(count_per_window.begin(), count_per_window.end(), 0);
+
+        // count
+        for (auto cm : pos_cm_vec)
+            count_per_window[cm / window_in_cm] += 1;
+
+        return count_per_window;
+    }
+
+    std::vector<region_label_t>
+    get_gap_vector(float window_in_cm = 2.0, int min_snp_per_window = 2)
+    {
+        std::vector<uint32_t> count_per_2cm = get_window_counts(window_in_cm);
+
+        std::vector<region_label_t> label_vec;
+
+        for (uint32_t i = 0; i < count_per_2cm.size(); ++i) {
+
+            uint32_t label = (count_per_2cm[i] >= min_snp_per_window);
+            size_t prev_label;
+            if (i == 0) {
+                // first label and start
+                label_vec.push_back({ 0, label });
+                prev_label = label;
+            } else {
+                // extend
+                if (label == prev_label)
+                    continue;
+                else {
+                    // new label and start
+                    float start_cm = window_in_cm * i;
+                    uint32_t pid_s = std::distance(
+                        pos_cm_vec.begin(), std::upper_bound(pos_cm_vec.begin(),
+                                                pos_cm_vec.end(), start_cm));
+
+                    //                                       pid_s = 52633
+                    //                                       \
+		    //                                       v
+                    //
+                    // ------x---x-----x---------------------x----x-----------------
+                    //
+                    //   |     keep      |    delete     |    keep       |
+                    //   64              66              68              70
+                    //
+                    //   66 and 68 will map to the pid_s
+                    //
+                    // Need to change pid_s for regions maked for deletion
+                    if (label == 0)
+                        pid_s = pid_s - 1;
+
+                    // std::cout << "i: " << i << "\t window_in_cm" << window_in_cm
+                    //           << "\t start_cm " << start_cm << "\t pid_s: " << pid_s
+                    //           << '\n';
+                    //
+                    label_vec.push_back({ pid_s, label });
+                    prev_label = label;
+                }
+            }
+        }
+
+        return label_vec;
     }
 
     // for debugging
