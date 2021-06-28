@@ -66,6 +66,12 @@ class Samples
     {
         return names_vec == other.names_vec && name2id_map == other.name2id_map;
     }
+
+    uint32_t
+    get_num_samples()
+    {
+        return names_vec.size();
+    }
 };
 
 #endif
