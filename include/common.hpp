@@ -22,6 +22,11 @@
 #include <unordered_map>
 #include <vector>
 
+struct region_label_t {
+    uint32_t pid_s : 24; // region start position id
+    uint32_t label : 8;
+};
+
 struct ibd_rec2_t {
     // data member
     uint32_t sid1;
