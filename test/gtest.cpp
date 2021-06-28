@@ -1,6 +1,7 @@
 #include "../include/ibdfile.hpp"
 #include "../include/ibdmerger.hpp"
 #include "../include/ibdsorter.hpp"
+#include "../include/ibdspliter.hpp"
 #include "../include/metafile.hpp"
 #include <algorithm>
 #include <cstdint>
@@ -377,37 +378,39 @@ TEST(ibdtools, TournamentTree)
     EXPECT_TRUE((out == all_nums));
 }
 
-TEST(htslib, bgzf_write_uncompressed)
+// Two times difference. Disabled to save big io cost
+TEST(htslib, DISABLED_bgzf_write_uncompressed)
 {
     std::vector<int> vec;
-    size_t sz = 100 * 1024 * 1014;
+    size_t sz = 100 * 1024 * 1024;
     vec.resize(sz);
     ssize_t res;
 
-    BGZF *bg_fp = bgzf_open("1.gz", "wu");
+    BGZF *bg_fp = bgzf_open("tmp_write_test.gz", "wu");
     res = bgzf_write(bg_fp, &vec[0], sz * sizeof(int));
     assert(res == sz * sizeof(int));
     bgzf_close(bg_fp);
 
-    BGZF *fp = bgzf_open("1.gz", "ru");
+    BGZF *fp = bgzf_open("tmp_write_test.gz", "ru");
     assert(sz * sizeof(int) == bgzf_read(fp, &vec[0], sz * sizeof(int)));
     bgzf_close(fp);
 }
 
-TEST(htslib, bgzf_write_uncompressed_vs_fwrite)
+// Two times difference. Disabled to save big io cost
+TEST(htslib, DISABLED_bgzf_write_uncompressed_vs_fwrite)
 {
     std::vector<int> vec;
     size_t sz = 100 * 1024 * 1014;
     vec.resize(sz);
     ssize_t res;
 
-    FILE *bg_fp = fopen("1.gz", "wu");
+    FILE *bg_fp = fopen("tmp_write_test.gz", "wu");
     res = fwrite(&vec[0], sizeof(int), sz, bg_fp);
     assert(res == sz);
     fclose(bg_fp);
 
     int val = 0;
-    FILE *fp = fopen("1.gz", "ru");
+    FILE *fp = fopen("tmp_write_test.gz", "ru");
     res = fread(&vec[0], sizeof(int), sz, fp);
     assert(res == sz);
     fclose(fp);
@@ -500,7 +503,7 @@ TEST(ibdtools, IbdMerger)
 {
     MetaFile meta;
     meta.parse_files(vcf_fn, map_fn, true, "10");
-    BGZF *fp = bgzf_open("meta.gz", "w");
+    BGZF *fp = bgzf_open("tmp_meta.gz", "w");
     meta.write_to_file(fp);
     bgzf_close(fp);
 
@@ -523,7 +526,7 @@ TEST(ibdtools, IbdMerger)
     sorted_here.read_from_file(false);
     sorted_here.close();
 
-    IbdMerger merger(temp_file2, temp_file3, "w", "meta.gz", 100);
+    IbdMerger merger(temp_file2, temp_file3, "w", "tmp_meta.gz", 100);
     merger.merge();
 
     // read merged file
@@ -549,69 +552,201 @@ TEST(ibdtools, IbdMerger)
     EXPECT_TRUE(merged_here.get_vec() == merged_browning.get_vec());
 }
 
-void
-test_auto_variable()
-{
-    class A
-    {
-        std::vector<int> vec;
-
-      public:
-        A() { vec.resize(10, 10); }
-        std::vector<int> &
-        get_vec()
-        {
-            return vec;
-        }
-    };
-
-    A a;
-
-    auto x = a.get_vec();
-    std::fill(x.begin(), x.end(), 20);
-    auto &y = a.get_vec();
-    std::cout << std::addressof(x) << " " << std::addressof(y) << '\n';
-
-    std::copy(x.begin(), x.end(), std::ostream_iterator<int>(std::cout, " "));
-    std::copy(y.begin(), y.end(), std::ostream_iterator<int>(std::cout, " "));
-}
-
-void
-test_bit_fields()
+TEST(cpp, bit_fields)
 {
     struct A {
         uint64_t a : 1, b : 1, c : 1, d : 1, e : 60;
     };
 
-    A a;
     uint64_t x = ~uint64_t(0);
+    A a = { 0 };
 
-    a.e = x;
+    a.a = x;
+
+    EXPECT_EQ(a.a, 1);
+    EXPECT_EQ(a.e, 0);
 
     auto y = a.a;
-
-    std::cout << a.a << '\n';
-    std::cout << sizeof(A) << '\n';
-    std::cout << a.e << '\n';
+    EXPECT_EQ(sizeof(y), sizeof(uint64_t));
 
     struct __attribute__((packed)) B {
         uint16_t x;
         uint64_t a : 16, b : 16, c : 16, d : 16;
     };
     B b;
-    b.x = 0x11;
-    b.a = 0xa;
-    b.b = 0xb;
-    b.c = 0xc;
-    b.d = 0xd;
+    b.x = 0x1;
+    b.a = 0x2;
+    b.b = 0x3;
+    b.c = 0x4;
+    b.d = 0x5;
 
-    std::cout << std::hex << *((uint16_t *) &b) << '\n';
-    std::cout << std::hex << *((uint16_t *) &b + 4) << '\n';
+    uint16_t *p = (uint16_t *) &b;
+
+    EXPECT_EQ(p[0], 1);
+    EXPECT_EQ(p[1], 2);
+    EXPECT_EQ(p[2], 3);
+    EXPECT_EQ(p[3], 4);
+    EXPECT_EQ(p[4], 5);
+}
+
+// some definition
+struct seg_t {
+    uint32_t pid_l;
+    uint32_t pid_r;
+    uint32_t label;
+    friend bool
+    operator==(const seg_t &s1, const seg_t &s2)
+    {
+        return s1.pid_l == s2.pid_l && s1.pid_r == s2.pid_r && s1.label == s2.label;
+    };
+    friend bool
+    operator<(const seg_t &s1, const seg_t &s2)
+    {
+        return s1.pid_l < s2.pid_r;
+    }
+};
+
+TEST(ibdtools, IbdSplitter)
+{
+
+    {
+        // make meta file
+        Positions pos(0);
+        for (int i = 0; i <= 11; i++)
+            pos.add(i, i * 1.0);
+
+        MetaFile meta;
+        meta.get_positions() = pos;
+        BGZF *fp = bgzf_open("tmp_meta.gz", "w");
+        meta.write_to_file(fp);
+        bgzf_close(fp);
+
+        // make region labels
+        auto labels = std::vector<region_label_t>{ { 0, 1 }, { 1, 0 }, { 2, 1 },
+            { 5, 0 }, { 8, 1 } };
+
+        using SegV = std::vector<seg_t>;
+
+        // helper function
+        auto split = [&labels](seg_t seg) -> SegV {
+            // make a record
+            SegV seg_vec;
+            ibd_rec2_t r2{ 1, 0, 1, 10, 0, 1 };
+            r2.pid1 = seg.pid_l;
+            r2.pid2 = seg.pid_r;
+
+            // Make ibd binary file contains one record
+            IbdFile ibd(temp_file1, NULL, 10);
+            ibd.get_vec().push_back(r2);
+            ibd.open("w");
+            ibd.write_to_file();
+            ibd.close();
+
+            // run splitter
+            IbdSplitter splitter(temp_file1, "tmp_", "tmp_meta.gz", labels);
+            splitter.split();
+
+            // read in file 0
+            uint32_t label = 0;
+            IbdFile ibd2("tmp_0", NULL, 100);
+            ibd2.open("r");
+            ibd2.read_from_file();
+            ibd2.close();
+
+            for (auto rec : ibd2.get_vec())
+                seg_vec.push_back({ rec.get_pid1(), rec.get_pid2(), label });
+
+            // read in file 1
+            label = 1;
+            IbdFile ibd3("tmp_1", NULL, 100);
+            ibd3.open("r");
+            ibd3.read_from_file();
+            ibd3.close();
+
+            for (auto rec : ibd3.get_vec())
+                seg_vec.push_back(seg_t{ rec.get_pid1(), rec.get_pid2(), label });
+
+            std::sort(seg_vec.begin(), seg_vec.end());
+
+            return seg_vec;
+        };
+
+        auto print_segv = [](SegV seg_vec) {
+            std::cout << "Print_seg_start \n";
+            for (auto seg : seg_vec) {
+                std::cout << "Seg: (" << seg.pid_l << ", " << seg.pid_r
+                          << "), label = " << seg.label << '\n';
+            }
+            std::cout << "Print_seg_end \n";
+        };
+
+        EXPECT_TRUE((split({ 0, 1 }) == SegV{}));
+        EXPECT_TRUE((split({ 2, 4 }) == SegV{ { 2, 4, 1 } }));
+        EXPECT_TRUE((split({ 5, 7 }) == SegV{ { 5, 7, 0 } }));
+        EXPECT_TRUE((split({ 0, 2 }) == SegV{}));
+        EXPECT_TRUE((split({ 3, 4 }) == SegV{}));
+        EXPECT_TRUE((split({ 0, 3 }) == SegV{}));
+        // print_segv(split({ 0, 3 }));
+        EXPECT_TRUE((split({ 0, 4 }) == SegV{ { 2, 4, 1 } }));
+        EXPECT_TRUE((split({ 0, 5 }) == SegV{ { 2, 5, 1 } }));
+        EXPECT_TRUE((split({ 3, 7 }) == SegV{ { 3, 5, 1 }, { 5, 7, 0 } }));
+        EXPECT_TRUE(
+            (split({ 2, 11 }) == SegV{ { 2, 5, 1 }, { 5, 8, 0 }, { 8, 11, 1 } }));
+        EXPECT_TRUE((split({ 4, 9 }) == SegV{ { 5, 8, 0 } }));
+    }
+
+    {
+        // just make sure the program run with real data files
+        MetaFile meta;
+        meta.parse_files(vcf_fn, map_fn, true, "10");
+        BGZF *fp = bgzf_open("tmp_meta.gz", "w");
+        meta.write_to_file(fp);
+        bgzf_close(fp);
+
+        IbdFile ibdfile1(temp_file1, &meta);
+        ibdfile1.open("wu");
+        ibdfile1.from_raw_ibd(ibd_txt_fn);
+        ibdfile1.close();
+
+        auto labels = meta.get_positions().get_gap_vector(2.0, 100);
+        std::string prefix = "tmp__splitted__";
+
+        IbdSplitter splitter(
+            temp_file1, prefix.c_str(), "tmp_meta.gz", labels, 1, 2.0, 1000, 1000);
+
+        splitter.split();
+
+        EXPECT_TRUE(std::filesystem::exists(prefix + '0'));
+        EXPECT_TRUE(std::filesystem::exists(prefix + '1'));
+
+        IbdFile f1((prefix + '0').c_str(), &meta);
+        f1.open("r");
+        f1.to_raw_ibd((prefix + "0.txt.gz").c_str());
+        f1.close();
+
+        IbdFile f2((prefix + '1').c_str(), &meta);
+        f2.open("r");
+        f2.to_raw_ibd((prefix + "1.txt.gz").c_str());
+        f2.close();
+    }
 }
 
 int
 main(int argc, char **argv)
 {
-    ::testing::InitGoogleTest(&argc, argv);
+    bool targeted_test = false;
+
+    if (targeted_test) {
+        int myargc = 2;
+        char *myargv[2];
+        char arg1[] = "./gtest";
+        char arg2[] = "--gtest_filter=ibdtools.IbdSplitter";
+        myargv[0] = arg1;
+        myargv[1] = arg2;
+        ::testing::InitGoogleTest(&myargc, myargv);
+    } else {
+        ::testing::InitGoogleTest(&argc, argv);
+    }
+
     return RUN_ALL_TESTS();
 }
