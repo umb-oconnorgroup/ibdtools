@@ -1,4 +1,5 @@
 #include "../include/ibdfile.hpp"
+#include "../include/ibdmatrix.hpp"
 #include "../include/ibdmerger.hpp"
 #include "../include/ibdsorter.hpp"
 #include "../include/ibdspliter.hpp"
@@ -8,6 +9,7 @@
 #include <gtest/gtest.h>
 #include <iterator>
 #include <memory>
+#include <numeric>
 #include <random>
 #include <stdio.h>
 
@@ -731,6 +733,99 @@ TEST(ibdtools, IbdSplitter)
     }
 }
 
+TEST(math, low_triangular_index_conversion)
+{
+    IbdMatrix m;
+
+    EXPECT_EQ(m.get_arr_index(1, 0), 0);
+    EXPECT_EQ(m.get_arr_index(2, 0), 1);
+    EXPECT_EQ(m.get_arr_index(2, 1), 2);
+    EXPECT_EQ(m.get_arr_index(3, 0), 3);
+    EXPECT_EQ(m.get_arr_index(3, 1), 4);
+    EXPECT_EQ(m.get_arr_index(3, 2), 5);
+    EXPECT_EQ(m.get_arr_index(4, 0), 6);
+    EXPECT_EQ(m.get_arr_index(4, 1), 7);
+    EXPECT_EQ(m.get_arr_index(4, 2), 8);
+    EXPECT_EQ(m.get_arr_index(4, 3), 9);
+    EXPECT_EQ(m.get_arr_index(5, 0), 10);
+    EXPECT_EQ(m.get_arr_index(5, 1), 11);
+    EXPECT_EQ(m.get_arr_index(5, 2), 12);
+    EXPECT_EQ(m.get_arr_index(5, 3), 13);
+    EXPECT_EQ(m.get_arr_index(5, 4), 14);
+
+    std::random_device ran;
+    std::mt19937 gen(ran());
+    std::uniform_int_distribution<uint32_t> unif(0, 100000);
+
+    uint32_t row, col, r, c;
+    for (uint32_t i = 0; i < 10000; i++) {
+        row = unif(gen);
+        col = unif(gen);
+        if (row == col)
+            row = col + 1;
+        else if (row < col)
+            std::swap(row, col);
+
+        size_t arr_index = m.get_arr_index(row, col);
+
+        m.get_matrix_index(arr_index, r, c);
+        EXPECT_EQ(r, row);
+        EXPECT_EQ(c, col);
+    }
+}
+
+TEST(ibdtools, IbdMatrix)
+{
+    MetaFile meta;
+    meta.parse_files(vcf_fn, map_fn, 0, "10");
+
+    IbdFile in(temp_file1, &meta);
+    in.open("w");
+    in.from_raw_ibd(ibd_txt_fn);
+    in.close();
+
+    IbdMatrix matrix;
+    in.open("r");
+    matrix.calculate_total_from_ibdfile(in);
+    // matrix.print_to_ostream(std::cout);
+    in.close();
+    matrix.write_matrix_file(temp_file2);
+    matrix.read_matrix_file(temp_file2);
+
+    in.open("r");
+    in.read_from_file();
+    in.close();
+    auto &vec = in.get_vec();
+    auto &pos = meta.get_positions();
+
+    std::random_device ran;
+    std::mt19937 gen(ran());
+    std::uniform_int_distribution<uint32_t> unif(0, matrix.get_num_samples() - 1);
+
+    uint32_t row, col, r, c;
+    for (uint32_t i = 0; i < 10000; i++) {
+        row = unif(gen);
+        col = unif(gen);
+        if (row == col) {
+            continue;
+        } else if (row < col)
+            std::swap(row, col);
+        else {
+            // do nothing
+        }
+
+        uint16_t total = 0;
+        for (auto rec : vec) {
+            if (rec.get_sid1() == row && rec.get_sid2() == col) {
+                float cm = pos.get_cm(rec.get_pid2()) - pos.get_cm(rec.get_pid1());
+                total += lround(cm * 10);
+            }
+        }
+
+        EXPECT_EQ(matrix.at(row, col), total);
+    }
+}
+
 int
 main(int argc, char **argv)
 {
@@ -740,7 +835,7 @@ main(int argc, char **argv)
         int myargc = 2;
         char *myargv[2];
         char arg1[] = "./gtest";
-        char arg2[] = "--gtest_filter=ibdtools.IbdSplitter";
+        char arg2[] = "--gtest_filter=ibdtools.IbdMatrix";
         myargv[0] = arg1;
         myargv[1] = arg2;
         ::testing::InitGoogleTest(&myargc, myargv);
