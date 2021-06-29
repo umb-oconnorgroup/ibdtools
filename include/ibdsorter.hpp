@@ -19,6 +19,8 @@ class IbdSorter
     std::string out_mode;
     size_t counter;
 
+    ibd_rec_cmp_t Cmp;
+
   private:
     void
     merge_first_k_chunk(IbdFile &out_put, size_t kways)
@@ -132,8 +134,9 @@ class IbdSorter
 
   public:
     IbdSorter(const char *in_fn, const char *out_fn, const char *out_mode,
-        const char *chunk_fn_prefix, size_t max_rec_allowed_by_ram)
-        : max_rec_allowed_by_ram(max_rec_allowed_by_ram), out_mode(out_mode)
+        const char *chunk_fn_prefix, size_t max_rec_allowed_by_ram,
+        ibd_rec_cmp_t Cmp = std::less<ibd_rec1_t>())
+        : max_rec_allowed_by_ram(max_rec_allowed_by_ram), out_mode(out_mode), Cmp(Cmp)
     {
         in = IbdFile(in_fn, NULL, max_rec_allowed_by_ram);
         out = IbdFile(out_fn, NULL, 0);
@@ -157,7 +160,7 @@ class IbdSorter
 
             // sort
             // std::sort(std::execution::par_unseq, vec.begin(), vec.end());
-            std::sort(vec.begin(), vec.end());
+            std::sort(vec.begin(), vec.end(), Cmp);
 
             // debug
             // std::cout << "In file vector size: " << in.get_vec().size() << '\n';
