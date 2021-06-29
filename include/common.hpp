@@ -383,6 +383,26 @@ struct __attribute__((packed)) ibd_rec1_t {
     }
 };
 
+using ibd_rec_cmp_t = std::function<bool(const ibd_rec1_t &, const ibd_rec1_t &)>;
+
+struct IbdComparatorHapPair {
+    bool
+    operator()(const ibd_rec1_t &r1, const ibd_rec1_t &r2)
+    {
+        if (r1.get_sid1() != r2.get_sid1())
+            return r1.get_sid1() < r2.get_sid1();
+        if (r1.get_hid1() != r2.get_hid1())
+            return r1.get_hid1() < r2.get_hid1();
+        if (r1.get_sid2() != r2.get_sid2())
+            return r1.get_sid2() < r2.get_sid2();
+        if (r1.get_hid2() != r2.get_hid2())
+            return r1.get_hid2() < r2.get_hid2();
+        if (r1.get_pid1() != r2.get_pid1())
+            return r1.get_pid1() < r2.get_pid1();
+        return r1.get_pid2() < r2.get_pid2();
+    }
+};
+
 // From cpp_high_perforamnce_2e_bjorn_andrist
 class ScopedTimer
 {
