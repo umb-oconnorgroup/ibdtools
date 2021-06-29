@@ -49,14 +49,14 @@ class IbdCoverage
         size_t num_win = max_cM / win_in_cM + 1;
         cm_vec.reserve(num_win);
 
-        for (size_t i = 0; i < num_win; i++)
+        for (size_t i = 0; i <= num_win; i++)
             cm_vec.push_back(win_in_cM * i);
 
         // init count vec;
         count_vec.resize(cm_vec.size(), 0);
 
         // grp_vec allocation
-        grps_vec.reserve(max_groups);
+        grps_vec.resize(max_groups);
 
         // grp_counts_vec allocation
         for (auto &grp : grps_vec) {
@@ -76,14 +76,14 @@ class IbdCoverage
         bool read_full;
         do {
             // read ibd into memory
-            in.read_from_file();
+            read_full = in.read_from_file();
 
             // divide into groups for parallelizating
             divide_to_groups();
 
             // calculate group coverage (can use parallelizing algorithm
             for_each(grps_vec.begin(), grps_vec.end(),
-                std::bind(&IbdCoverage::calculate_grp_coverage, this));
+                [this](group_t &grp) mutable { this->calculate_grp_coverage(grp); });
 
             // add each groups results to count_vec
             for (auto &grp : grps_vec)
@@ -92,6 +92,12 @@ class IbdCoverage
                     grp.grp_cnt_vec.begin(), count_vec.begin(), std::plus<size_t>());
 
             total_rec_processed += vec.size();
+
+            // debug
+            // summary(std::cout, 300);
+            // print_group_state();
+
+            // exit(1);
 
         } while (read_full);
 
@@ -102,19 +108,15 @@ class IbdCoverage
     void
     divide_to_groups()
     {
-        auto vec = in.get_vec();
+        auto &vec = in.get_vec();
         size_t step = vec.size() / max_groups;
 
         for (size_t i = 0; i < max_groups; i++) {
-            grps_vec[i].first = vec.begin() + step * i;
             // first
-            // find group boundaries
-            while (grps_vec[i].first != vec.begin()
-                   && grps_vec[i].first->is_same_pair(*(grps_vec[i].first - 1)))
-                grps_vec[i].first--;
+            grps_vec[i].first = vec.begin() + step * i;
 
             // last
-            if (i > 1) {
+            if (i > 0) {
                 grps_vec[i - 1].last = grps_vec[i].first;
             }
             if (i == max_groups - 1)
@@ -135,12 +137,19 @@ class IbdCoverage
             start_cm = pos.get_cm(it->get_pid1());
             end_cm = pos.get_cm(it->get_pid2());
 
-            auto cm_vec_id = std::distance(cm_vec.begin(),
-                                 std::upper_bound(cm_vec.begin(), cm_vec.end(),
-                                     pos.get_cm(it->get_pid1())))
-                             - 1;
-            for (; cm_vec_id < cm_vec.size(); cm_vec_id++)
-                grp.grp_cnt_vec[cm_vec_id]++;
+            //  upper_bound:    a[i-1] <= x < a[i]
+            //  lower_bound:    a[i-1] < x <= a[i]
+
+            auto first = std::distance(cm_vec.begin(),
+                             std::upper_bound(cm_vec.begin(), cm_vec.end(),
+                                 pos.get_cm(it->get_pid1())))
+                         - 1;
+            auto last = std::distance(
+                cm_vec.begin(), std::lower_bound(cm_vec.begin() + first, cm_vec.end(),
+                                    pos.get_cm(it->get_pid2())));
+
+            for (; first < last; first++)
+                grp.grp_cnt_vec[first]++;
         }
     }
 
@@ -179,6 +188,41 @@ class IbdCoverage
         read_vector_from_file(count_vec, fp);
 
         bgzf_close(fp);
+    }
+
+    void
+    summary(std::ostream &os, size_t print_n = 10)
+    {
+        os << "Window size (cM): " << window_in_cM << '\n';
+        os << "Records processed: " << total_rec_processed << '\n';
+        os << "Coverage:\n";
+        os << "cM\tCount\n";
+        for (size_t i = 0; i < print_n && i < cm_vec.size(); i++)
+            os << cm_vec[i] << '\t' << count_vec[i] << '\n';
+        if (print_n < cm_vec.size())
+            os << "...\n";
+    }
+
+    void
+    print_group_state()
+    {
+        std::cout << "Group state: \n";
+        for (auto &grp : grps_vec) {
+            std::cout << std::distance(in.get_vec().begin(), grp.first) << ", "
+                      << std::distance(in.get_vec().begin(), grp.last) << '\n';
+        }
+    }
+
+    std::vector<float> &
+    get_cm_vec()
+    {
+        return cm_vec;
+    }
+
+    std::vector<size_t> &
+    get_count_vec()
+    {
+        return count_vec;
     }
 };
 #endif
