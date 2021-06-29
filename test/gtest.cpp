@@ -1,3 +1,4 @@
+#include "../include/ibdcoverage.hpp"
 #include "../include/ibdfile.hpp"
 #include "../include/ibdmatrix.hpp"
 #include "../include/ibdmerger.hpp"
@@ -826,6 +827,93 @@ TEST(ibdtools, IbdMatrix)
     }
 }
 
+TEST(ibdtools, IbdCoverage_run_thru)
+{
+
+    MetaFile meta;
+    meta.parse_files(vcf_fn, map_fn, true, "10");
+    BGZF *fp = bgzf_open("tmp_meta.gz", "w");
+    meta.write_to_file(fp);
+    bgzf_close(fp);
+
+    IbdFile in(temp_file1, &meta);
+    in.open("w");
+    in.from_raw_ibd(ibd_txt_fn);
+    in.close();
+
+    IbdCoverage cov(temp_file1, "tmp_meta.gz", 1, 1000);
+    cov.calculate_coverage();
+
+    cov.write_to_file(temp_file2);
+
+    IbdCoverage cov2;
+    cov2.read_from_file(temp_file2);
+}
+
+TEST(ibdtools, IbdCoverage_exact)
+{
+
+    // make meta file
+    Positions pos(0);
+    for (int i = 0; i <= 11; i++)
+        pos.add(i, i * 1.0);
+
+    MetaFile meta;
+    meta.get_positions() = pos;
+    BGZF *fp = bgzf_open("tmp_meta.gz", "w");
+    meta.write_to_file(fp);
+    bgzf_close(fp);
+
+    // make ibd vec
+    using namespace std;
+    auto pairs
+        = vector<pair<uint32_t, uint32_t> >{ { 0, 1 }, { 2, 4 }, { 5, 7 }, { 0, 2 },
+              { 3, 4 }, { 0, 3 }, { 0, 4 }, { 0, 5 }, { 3, 7 }, { 2, 11 }, { 4, 9 } };
+
+    std::vector<ibd_rec1_t> rec_vec;
+    for (auto pair : pairs) {
+        ibd_rec2_t r2{ 1, 0, 1, 10, 0, 1 };
+        r2.set_pid1(get<0>(pair));
+        r2.set_pid2(get<1>(pair));
+        rec_vec.push_back(r2);
+    }
+
+    // write to ibd file
+    IbdFile ibd(temp_file1, NULL, 10);
+    ibd.get_vec() = rec_vec;
+    ibd.open("w");
+    ibd.write_to_file();
+    ibd.close();
+
+    IbdCoverage cov(temp_file1, "tmp_meta.gz");
+    cov.calculate_coverage();
+    cov.write_to_file(temp_file2);
+    // cov.summary(std::cout);
+
+    IbdCoverage cov2;
+    cov2.read_from_file(temp_file2);
+
+    vector<float> expected_cm_vec;
+    for (int i = 0; i <= 12; i++)
+        expected_cm_vec.push_back(i * 1.0);
+
+    EXPECT_EQ(cov2.get_cm_vec(), expected_cm_vec);
+
+    EXPECT_EQ(cov2.get_count_vec()[0], 5);
+    EXPECT_EQ(cov2.get_count_vec()[1], 4);
+    EXPECT_EQ(cov2.get_count_vec()[2], 5);
+    EXPECT_EQ(cov2.get_count_vec()[3], 6);
+    EXPECT_EQ(cov2.get_count_vec()[4], 4);
+    EXPECT_EQ(cov2.get_count_vec()[5], 4);
+    EXPECT_EQ(cov2.get_count_vec()[6], 4);
+    EXPECT_EQ(cov2.get_count_vec()[7], 2);
+    EXPECT_EQ(cov2.get_count_vec()[8], 2);
+    EXPECT_EQ(cov2.get_count_vec()[9], 1);
+    EXPECT_EQ(cov2.get_count_vec()[10], 1);
+    EXPECT_EQ(cov2.get_count_vec()[11], 0);
+    EXPECT_EQ(cov2.get_count_vec()[12], 0);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -835,7 +923,7 @@ main(int argc, char **argv)
         int myargc = 2;
         char *myargv[2];
         char arg1[] = "./gtest";
-        char arg2[] = "--gtest_filter=ibdtools.IbdMatrix";
+        char arg2[] = "--gtest_filter=ibdtools.IbdCoverage_exact";
         myargv[0] = arg1;
         myargv[1] = arg2;
         ::testing::InitGoogleTest(&myargc, myargv);
