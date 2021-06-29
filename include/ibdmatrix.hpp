@@ -123,7 +123,7 @@ class IbdMatrix
         auto &in_vec = ibdfile.get_vec();
         uint32_t row, col, pid1, pid2;
         do {
-            ibdfile.read_from_file();
+            read_full = ibdfile.read_from_file();
             for (auto rec : in_vec) {
                 row = rec.get_sid1();
                 col = rec.get_sid2();
