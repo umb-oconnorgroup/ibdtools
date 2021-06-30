@@ -5,6 +5,7 @@
 #include "metafile.hpp"
 #include "positions.hpp"
 #include <filesystem>
+#include <iostream>
 
 class IbdMatrix
 {
@@ -132,6 +133,30 @@ class IbdMatrix
                 at(row, col) += lround((pos.get_cm(pid2) - pos.get_cm(pid1)) * 10);
             }
         } while (read_full);
+    }
+
+    // @win_size_in_10th_cm: 1 means 0.1cm window; 2 means 0.2cm ...
+    void
+    get_histogram(std::vector<size_t> &count_vec, uint16_t win_size_in_10th_cm = 1)
+    {
+        auto max_element = std::max_element(cm10x_vec.begin(), cm10x_vec.end());
+        uint16_t max_val = *max_element;
+        size_t sz = max_val / win_size_in_10th_cm
+                    + ((max_val % win_size_in_10th_cm) ? 1 : 0) + 1;
+
+        count_vec.resize(sz, 0);
+        for (size_t i = 0; i < cm10x_vec.size(); i++)
+            count_vec[cm10x_vec[i / win_size_in_10th_cm]]++;
+    }
+
+    // keep any element x if low <= x < upper and set other element to 0
+    void
+    filter_matrix(uint16_t low, uint16_t upper)
+    {
+        for_each(cm10x_vec.begin(), cm10x_vec.end(), [low, upper](auto &x) {
+            if (x < low || x >= upper)
+                x = 0;
+        });
     }
 
     void
