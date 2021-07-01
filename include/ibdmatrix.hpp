@@ -10,7 +10,8 @@
 class IbdMatrix
 {
     std::vector<uint16_t> cm10x_vec; // convert float to int16_t by round(10xcM);
-    uint32_t nsam;
+    uint32_t d; // d = nsam if is not hap_pair matrix; otherwise d = 2 * nsam;
+    uint8_t is_hap_pair_m;
 
   public:
     IbdMatrix() {}
@@ -25,7 +26,7 @@ class IbdMatrix
     size_t
     get_array_size()
     {
-        size_t sz = nsam;
+        size_t sz = d;
         return sz * (sz - 1) / 2;
     }
 
@@ -38,7 +39,13 @@ class IbdMatrix
     uint32_t
     get_num_samples()
     {
-        return nsam;
+        return d;
+    }
+
+    bool
+    is_hap_pair()
+    {
+        return is_hap_pair_m != 0;
     }
 
     void
@@ -82,7 +89,8 @@ class IbdMatrix
         std::filesystem::exists(gzi);
         assert(0 == bgzf_index_load(fp, matrix_fn, ".gzi"));
 
-        read_element_from_file(nsam, fp);
+        read_element_from_file(is_hap_pair_m, fp);
+        read_element_from_file(d, fp);
         read_vector_from_file(cm10x_vec, fp);
         assert(get_array_size() == cm10x_vec.size());
 
@@ -100,7 +108,8 @@ class IbdMatrix
         bgzf_index_build_init(fp);
 
         assert(get_array_size() == cm10x_vec.size());
-        write_element_to_file(nsam, fp);
+        write_element_to_file(is_hap_pair_m, fp);
+        write_element_to_file(d, fp);
         write_vector_to_file(cm10x_vec, fp);
 
         assert(0 == bgzf_index_dump(fp, matrix_fn, ".gzi"));
@@ -108,31 +117,57 @@ class IbdMatrix
     }
 
     void
-    calculate_total_from_ibdfile(IbdFile &ibdfile)
+    calculate_total_from_ibdfile(IbdFile &ibdfile, bool use_hap_pair = false)
     {
         MetaFile *meta = ibdfile.get_meta();
         assert(meta != NULL && "calculate total need info from the meta file");
+
+        is_hap_pair_m = use_hap_pair;
 
         // for get cM from pos_id
         Positions &pos = meta->get_positions();
 
         // for allocation
-        nsam = meta->get_samples().get_num_samples();
+        d = meta->get_samples().get_num_samples();
+        if (use_hap_pair)
+            d *= 2;
+
         cm10x_vec.resize(get_array_size());
 
         bool read_full;
         auto &in_vec = ibdfile.get_vec();
         uint32_t row, col, pid1, pid2;
-        do {
-            read_full = ibdfile.read_from_file();
-            for (auto rec : in_vec) {
-                row = rec.get_sid1();
-                col = rec.get_sid2();
-                pid1 = rec.get_pid1();
-                pid2 = rec.get_pid2();
-                at(row, col) += lround((pos.get_cm(pid2) - pos.get_cm(pid1)) * 10);
-            }
-        } while (read_full);
+
+        if (is_hap_pair()) {
+            do {
+                read_full = ibdfile.read_from_file();
+                for (auto rec : in_vec) {
+                    row = rec.get_sid1();
+                    row <<= 1;
+                    row += rec.get_hid1();
+                    col = rec.get_sid2();
+                    col <<= 1;
+                    col += rec.get_hid2();
+                    pid1 = rec.get_pid1();
+                    pid2 = rec.get_pid2();
+                    at(row, col) += lround((pos.get_cm(pid2) - pos.get_cm(pid1)) * 10);
+                }
+
+            } while (read_full);
+
+        } else {
+            do {
+                read_full = ibdfile.read_from_file();
+
+                for (auto rec : in_vec) {
+                    row = rec.get_sid1();
+                    col = rec.get_sid2();
+                    pid1 = rec.get_pid1();
+                    pid2 = rec.get_pid2();
+                    at(row, col) += lround((pos.get_cm(pid2) - pos.get_cm(pid1)) * 10);
+                }
+            } while (read_full);
+        }
     }
 
     // @win_size_in_10th_cm: 1 means 0.1cm window; 2 means 0.2cm ...
@@ -163,8 +198,8 @@ class IbdMatrix
     print_to_ostream(std::ostream &os, uint32_t r_first = 0, uint32_t r_last = 10,
         uint32_t c_first = 0, uint32_t c_last = 10)
     {
-        assert(0 <= r_first && r_first < r_last && r_last < nsam);
-        assert(0 <= c_first && c_first < c_last && c_last < nsam);
+        assert(0 <= r_first && r_first < r_last && r_last < d);
+        assert(0 <= c_first && c_first < c_last && c_last < d);
 
         for (uint32_t row = r_first; row < r_last; row++) {
             for (uint32_t col = c_first; col < c_last; col++) {

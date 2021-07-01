@@ -777,6 +777,7 @@ TEST(math, low_triangular_index_conversion)
 
 TEST(ibdtools, IbdMatrix)
 {
+    // run through
     MetaFile meta;
     meta.parse_files(vcf_fn, map_fn, 0, "10");
 
@@ -785,14 +786,21 @@ TEST(ibdtools, IbdMatrix)
     in.from_raw_ibd(ibd_txt_fn);
     in.close();
 
-    IbdMatrix matrix;
-    in.open("r");
-    matrix.calculate_total_from_ibdfile(in);
-    // matrix.print_to_ostream(std::cout);
-    in.close();
-    matrix.write_matrix_file(temp_file2);
-    matrix.read_matrix_file(temp_file2);
+    IbdMatrix mat_sam, mat_hap;
 
+    in.open("r");
+    mat_sam.calculate_total_from_ibdfile(in);
+    in.close();
+    mat_sam.write_matrix_file(temp_file2);
+    mat_sam.read_matrix_file(temp_file2);
+
+    in.open("r");
+    mat_hap.calculate_total_from_ibdfile(in, true);
+    in.close();
+    mat_hap.write_matrix_file(temp_file3);
+    mat_hap.read_matrix_file(temp_file3);
+
+    // exact compair 1
     in.open("r");
     in.read_from_file();
     in.close();
@@ -801,9 +809,9 @@ TEST(ibdtools, IbdMatrix)
 
     std::random_device ran;
     std::mt19937 gen(ran());
-    std::uniform_int_distribution<uint32_t> unif(0, matrix.get_num_samples() - 1);
+    std::uniform_int_distribution<uint32_t> unif(0, mat_sam.get_num_samples() - 1);
 
-    uint32_t row, col, r, c;
+    uint32_t row, col;
     for (uint32_t i = 0; i < 10000; i++) {
         row = unif(gen);
         col = unif(gen);
@@ -816,14 +824,33 @@ TEST(ibdtools, IbdMatrix)
         }
 
         uint16_t total = 0;
+        uint16_t total_hap[4] = { 0, 0, 0, 0 };
         for (auto rec : vec) {
             if (rec.get_sid1() == row && rec.get_sid2() == col) {
                 float cm = pos.get_cm(rec.get_pid2()) - pos.get_cm(rec.get_pid1());
-                total += lround(cm * 10);
+                uint16_t cmx10 = lround(cm * 10);
+                total += cmx10;
+                if (rec.get_hid1() == 0) {
+                    if (rec.get_hid2() == 0) {
+                        total_hap[0] += cmx10;
+                    } else {
+                        total_hap[1] += cmx10;
+                    }
+                } else {
+                    if (rec.get_hid2() == 0) {
+                        total_hap[2] += cmx10;
+                    } else {
+                        total_hap[3] += cmx10;
+                    }
+                }
             }
         }
 
-        EXPECT_EQ(matrix.at(row, col), total);
+        EXPECT_EQ(mat_sam.at(row, col), total);
+        EXPECT_EQ(mat_hap.at((row << 1) + 0, (col << 1) + 0), total_hap[0]);
+        EXPECT_EQ(mat_hap.at((row << 1) + 0, (col << 1) + 1), total_hap[1]);
+        EXPECT_EQ(mat_hap.at((row << 1) + 1, (col << 1) + 0), total_hap[2]);
+        EXPECT_EQ(mat_hap.at((row << 1) + 1, (col << 1) + 1), total_hap[3]);
     }
 }
 
@@ -917,13 +944,13 @@ TEST(ibdtools, IbdCoverage_exact)
 int
 main(int argc, char **argv)
 {
-    bool targeted_test = false;
+    bool targeted_test = true;
 
     if (targeted_test) {
         int myargc = 2;
         char *myargv[2];
         char arg1[] = "./gtest";
-        char arg2[] = "--gtest_filter=ibdtools.IbdCoverage_exact";
+        char arg2[] = "--gtest_filter=ibdtools.IbdMatrix";
         myargv[0] = arg1;
         myargv[1] = arg2;
         ::testing::InitGoogleTest(&myargc, myargv);
