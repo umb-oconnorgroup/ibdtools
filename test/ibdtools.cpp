@@ -408,6 +408,65 @@ ibdtools_matrix_main(int argc, char *argv[])
     return 0;
 }
 ////////////////////////////////////////////////////////////
+int
+ibdtools_decode_main(int argc, char *argv[])
+{
+
+    string ibd_in, meta_in, ibd_out;
+    float mem = 10.0;
+
+    options_description desc{ "ibdtools decode" };
+
+    try {
+        auto add = desc.add_options();
+
+        add("ibd_in,i", value<string>(&ibd_in)->required(), "input ibd file (encoded)");
+        add("meta_in,m", value<string>(&meta_in)->required(), "RAM to use (Gb)");
+        add("mem,M", value<float>(&mem)->default_value(10.0), "output metafile");
+        add("ibd_out,o", value<string>(&ibd_out)->required(), "output ibd file(txt)");
+        add("help,h", "print help information");
+
+        variables_map vm;
+        auto options = parse_command_line(argc, argv, desc);
+        store(options, vm);
+
+        if (vm.count("help")) {
+            cerr << desc << '\n';
+            exit(-1);
+        }
+
+        notify(vm);
+
+        cerr << "Options received: \n";
+        cerr << "--ibd_in: " << ibd_in << '\n';
+        cerr << "--meta_in: " << meta_in << '\n';
+        cerr << "--ibd_out: " << ibd_out << '\n';
+        cerr << "--mem: " << mem << '\n';
+
+    } catch (const error &ex) {
+        cerr << ex.what() << '\n';
+        cerr << desc << '\n';
+        exit(-1);
+    }
+
+    // open file for save meta file
+    BGZF *fp = NULL;
+
+    fp = bgzf_open(meta_in.c_str(), "r");
+    assert(fp != NULL);
+    MetaFile meta;
+    meta.read_from_file(fp);
+    bgzf_close(fp);
+    fp = NULL;
+
+    // encode ibdfile
+    IbdFile ibdfile(ibd_in.c_str(), &meta, mem / 10.0 * 0.33 * 1024 * 1024 * 1024);
+    ibdfile.open("r");
+    ibdfile.to_raw_ibd(ibd_out.c_str(), mem / 10.0 * 0.66 * 1024 * 1024 * 1024);
+    ibdfile.close();
+
+    return 0;
+}
 
 ////////////////////////////////////////////////////////////
 
@@ -415,11 +474,11 @@ int
 main(int argc, char *argv[])
 {
     vector<string> subcmds
-        = { "encode", "coverage", "split", "sort", "merge", "matrix" };
+        = { "encode", "coverage", "split", "sort", "merge", "matrix", "decode" };
     // "summary", "view"
 
     auto err_msg = [&]() {
-        cerr << "ibdtools <subcommand> [options]\n  Avaiable subcommands: \n";
+        cerr << "Usage: ibdtools <subcommand> [options]. Avaiable subcommands: \n";
         for (auto s : subcmds)
             cerr << "\t" << s << '\n';
         cerr << "  For more information, run: ibdtools <subcommand> --help\n";
@@ -429,14 +488,15 @@ main(int argc, char *argv[])
 
         err_msg();
         return -1;
+    }
 
+    string subcmd(argv[1]);
+    if (subcmd == "-h" || subcmd == "--help") {
+        err_msg();
+        return -1;
     } else {
-
-        string subcmd(argv[1]);
-        if (subcmd == "-h" || subcmd == "--help") {
-            err_msg();
-            return -1;
-        } else if (subcmd == "encode") {
+        ScopedTimer timer("run time", true);
+        if (subcmd == "encode") {
             return ibdtools_encode_main(argc - 1, argv + 1);
         } else if (subcmd == "coverage") {
             return ibdtools_coverage_main(argc - 1, argv + 1);
@@ -448,6 +508,8 @@ main(int argc, char *argv[])
             return ibdtools_merge_main(argc - 1, argv + 1);
         } else if (subcmd == "matrix") {
             return ibdtools_matrix_main(argc - 1, argv + 1);
+        } else if (subcmd == "decode") {
+            return ibdtools_decode_main(argc - 1, argv + 1);
         } else {
             cerr << "Subcommand `" << subcmd << "` NOT Implemented!\n";
             exit(-1);
