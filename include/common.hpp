@@ -774,7 +774,7 @@ template <typename T> class TournamentTree
   public:
     TournamentTree(int k_, T max_val) : max_val(max_val), k(k_)
     {
-        // assert(k >= 2 && "the number of node needs to be greater than 2");
+        assert(k >= 1 && "the number of node needs to be greater than 1");
 
         for (N = 1; (1 << N) < k; N++)
             ;
