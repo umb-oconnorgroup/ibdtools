@@ -158,12 +158,14 @@ class Positions
     void
     write_to_file(BGZF *fp)
     {
+        write_element_to_file(chrom_id, fp);
         write_vector_to_file(pos_bp_vec, fp);
         write_vector_to_file(pos_cm_vec, fp);
     }
     void
     read_from_file(BGZF *fp)
     {
+        read_element_from_file(chrom_id, fp);
         read_vector_from_file(pos_bp_vec, fp);
         read_vector_from_file(pos_cm_vec, fp);
 
