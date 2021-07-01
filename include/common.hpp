@@ -403,17 +403,22 @@ struct IbdComparatorHapPair {
     }
 };
 
-// From cpp_high_perforamnce_2e_bjorn_andrist
+// Adapted from cpp_high_perforamnce_2e_bjorn_andrist
 class ScopedTimer
 {
     using ClockType = std::chrono::steady_clock;
+    bool human_readable{ false };
 
   private:
     const char *function_name_{};
     const ClockType::time_point start_{};
 
   public:
-    ScopedTimer(const char *func) : function_name_{ func }, start_{ ClockType::now() } {}
+    ScopedTimer(const char *func, bool human_readable = false)
+        : function_name_{ func }, start_{ ClockType::now() },
+          human_readable(human_readable)
+    {
+    }
     ScopedTimer(ScopedTimer &&) = delete;
     ScopedTimer &operator=(const ScopedTimer &) = delete;
     ScopedTimer &operator=(ScopedTimer &&) = delete;
@@ -421,10 +426,34 @@ class ScopedTimer
     ~ScopedTimer()
     {
         using namespace std::chrono;
+        using days = duration<int, std::ratio<86400> >;
+
         auto stop = ClockType::now();
         auto duration = (stop - start_);
-        auto ms = duration_cast<milliseconds>(duration).count();
-        std::cout << ms << "ms " << function_name_ << '\n';
+        auto ms = duration_cast<milliseconds>(duration);
+        uint8_t flags = 0;
+        if (human_readable) {
+            auto d = duration_cast<days>(duration);
+            duration -= d;
+            auto h = duration_cast<hours>(duration);
+            duration -= h;
+            auto m = duration_cast<minutes>(duration);
+            duration -= m;
+            auto s = duration_cast<seconds>(duration);
+            duration -= s;
+            auto ms = duration_cast<milliseconds>(duration);
+            if (d.count() > 0)
+                std::cout << d.count() << "days ";
+            if (d.count() || h.count())
+                std::cout << h.count() << "hrs ";
+            if (d.count() || h.count() || m.count())
+                std::cout << m.count() << "min ";
+            if (d.count() || h.count() || m.count() || s.count())
+                std::cout << s.count() << "sec ";
+            std::cout << ms.count() << "ms\t" << function_name_ << '\n';
+        } else {
+            std::cout << ms.count() << "ms\t" << function_name_ << '\n';
+        }
     }
 };
 
