@@ -24,7 +24,9 @@ class IbdCoverage
         Iter first, last;
         std::vector<size_t> grp_cnt_vec;
     };
-    size_t max_groups{ 64 };
+
+    // this is can be larger when used for parallelization
+    size_t max_groups{ 1 };
     std::vector<group_t> grps_vec;
 
   public:
@@ -128,14 +130,12 @@ class IbdCoverage
     calculate_grp_coverage(group_t &grp)
     {
         // clear counts to zero
+        grp.grp_cnt_vec.clear();
         grp.grp_cnt_vec.resize(cm_vec.size(), 0);
 
         auto &pos = meta.get_positions();
-        uint32_t start_cm, end_cm;
 
         for (Iter it = grp.first; it < grp.last; it++) {
-            start_cm = pos.get_cm(it->get_pid1());
-            end_cm = pos.get_cm(it->get_pid2());
 
             //  upper_bound:    a[i-1] <= x < a[i]
             //  lower_bound:    a[i-1] < x <= a[i]
@@ -193,9 +193,9 @@ class IbdCoverage
     void
     summary(std::ostream &os, size_t print_n = 10)
     {
-        os << "Window size (cM): " << window_in_cM << '\n';
-        os << "Records processed: " << total_rec_processed << '\n';
-        os << "Coverage:\n";
+        os << "# Window size (cM): " << window_in_cM << '\n';
+        os << "# Records processed: " << total_rec_processed << '\n';
+        os << "# Coverage:\n";
         os << "cM\tCount\n";
         for (size_t i = 0; i < print_n && i < cm_vec.size(); i++)
             os << cm_vec[i] << '\t' << count_vec[i] << '\n';
