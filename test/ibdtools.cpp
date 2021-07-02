@@ -14,6 +14,7 @@
 #include <fstream>
 #include <limits>
 #include <numeric>
+#include <sys/types.h>
 
 using namespace std;
 using namespace boost::program_options;
@@ -142,6 +143,8 @@ ibdtools_split_main(int argc, char *argv[])
 {
     string meta_in_fn, ibd_in_fn, out_prefix;
     vector<region_label_t> labels;
+    float window_cM = 2.0;
+    size_t min_snp_in_window = 100;
     float min_cM = 2.0;
     float mem = 10.0;
 
@@ -151,6 +154,10 @@ ibdtools_split_main(int argc, char *argv[])
         add("ibd_in,i", value<string>(&ibd_in_fn)->required(), "input ibd (encoded)");
         add("meta_in,m", value<string>(&meta_in_fn)->required(),
             "input metafile (encoded)");
+        add("window_cM,W", value<float>(&window_cM)->default_value(2.0),
+            "window to count SNPs (cM)");
+        add("min_snp_in_window,S", value<size_t>(&min_snp_in_window)->default_value(2.0),
+            "window to count SNPs (cM)");
         add("min_cM", value<float>(&min_cM)->default_value(2.0),
             "mininum length to keep after splitting (cM)");
         add("mem", value<float>(&mem)->default_value(10), "RAM to use");
@@ -186,7 +193,7 @@ ibdtools_split_main(int argc, char *argv[])
         MetaFile meta;
         meta.read_from_file(fp);
         bgzf_close(fp);
-        labels = meta.get_positions().get_gap_vector(2.0, 100);
+        labels = meta.get_positions().get_gap_vector(window_cM, min_snp_in_window);
 
         ofstream ofs(out_prefix + "_label.txt");
         ofs << "pid\tpos_bp\tlabel\n";
@@ -469,6 +476,86 @@ ibdtools_decode_main(int argc, char *argv[])
 }
 
 ////////////////////////////////////////////////////////////
+int
+ibdtools_view_main(int argc, char *argv[])
+{
+    string ibd_in, meta_in;
+    uint32_t sid1, sid2;
+    float mem;
+    options_description desc{ "ibdtools view" };
+
+    try {
+        auto add = desc.add_options();
+        add("ibd_in,i", value<string>(&ibd_in)->required(),
+            "input IBD file (encoded, unsorted)");
+        add("meta_in,m", value<string>(&meta_in)->required(),
+            "output ibd file (encoded");
+        add("sid1,1", value<uint32_t>(&sid1)->default_value(1),
+            "no. way for the merging step");
+        add("sid2,2", value<uint32_t>(&sid2)->default_value(0),
+            "no. way for the merging step");
+        add("mem,M", value<float>(&mem)->default_value(10.0), "RAM to use (Gb)");
+        add("help,h", "print help message");
+
+        variables_map vm;
+        store(parse_command_line(argc, argv, desc), vm);
+
+        if (vm.count("help")) {
+            cerr << desc << '\n';
+            exit(-2);
+        }
+        notify(vm);
+
+        cerr << "Options received: \n";
+        cerr << "--ibd_in: " << ibd_in << '\n';
+        cerr << "--meta_in: " << meta_in << '\n';
+        cerr << "--sid1: " << sid1 << '\n';
+        cerr << "--sid2: " << sid2 << '\n';
+        cerr << "--mem: " << mem << '\n';
+
+    } catch (const error &ex) {
+        cerr << ex.what() << '\n';
+        cerr << desc << '\n';
+        exit(-1);
+    }
+
+    MetaFile meta;
+    BGZF *fp = bgzf_open(meta_in.c_str(), "r");
+    assert(fp != NULL);
+    meta.read_from_file(fp);
+    bgzf_close(fp);
+
+    IbdFile ibdfile(ibd_in.c_str(), &meta, mem / 10 * 1024 * 1024 * 1024);
+
+    ibdfile.open("r");
+    bool read_full;
+    auto &pos = meta.get_positions();
+
+    if (sid1 < sid2)
+        std::swap(sid1, sid2);
+
+    std::cout << "sid1: " << sid1 << " sample1: " << meta.get_samples().get_name(sid1)
+              << "sid2: " << sid2 << " sample2: " << meta.get_samples().get_name(sid2)
+              << '\n';
+    do {
+        read_full = ibdfile.read_from_file();
+        for (auto x : ibdfile.get_vec()) {
+
+            if (x.get_sid1() == sid1 && x.get_sid2() == sid2) {
+
+                float cm1 = pos.get_cm(x.pid1);
+                float cm2 = pos.get_cm(x.get_pid2());
+                std::cout << x.sid1 << '\t' << x.hid1 << '\t' << x.sid2 << '\t' << x.hid2
+                          << '\t' << x.pid1 << '\t' << x.get_pid2() << '\t' << cm1
+                          << '\t' << cm2 << '\t' << cm2 - cm1 << '\n';
+            }
+        }
+    } while (read_full);
+    ibdfile.close();
+
+    return 0;
+}
+////////////////////////////////////////////////////////////
 
 int
 main(int argc, char *argv[])
@@ -510,6 +597,8 @@ main(int argc, char *argv[])
             return ibdtools_matrix_main(argc - 1, argv + 1);
         } else if (subcmd == "decode") {
             return ibdtools_decode_main(argc - 1, argv + 1);
+        } else if (subcmd == "view") {
+            return ibdtools_view_main(argc - 1, argv + 1);
         } else {
             cerr << "Subcommand `" << subcmd << "` NOT Implemented!\n";
             exit(-1);
