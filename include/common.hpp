@@ -456,16 +456,16 @@ class ScopedTimer
             duration -= s;
             auto ms = duration_cast<milliseconds>(duration);
             if (d.count() > 0)
-                std::cout << d.count() << "days ";
+                std::cerr << d.count() << "days ";
             if (d.count() || h.count())
-                std::cout << h.count() << "hrs ";
+                std::cerr << h.count() << "hrs ";
             if (d.count() || h.count() || m.count())
-                std::cout << m.count() << "min ";
+                std::cerr << m.count() << "min ";
             if (d.count() || h.count() || m.count() || s.count())
-                std::cout << s.count() << "sec ";
-            std::cout << ms.count() << "ms\t" << function_name_ << '\n';
+                std::cerr << s.count() << "sec ";
+            std::cerr << ms.count() << "ms\t" << function_name_ << '\n';
         } else {
-            std::cout << ms.count() << "ms\t" << function_name_ << '\n';
+            std::cerr << ms.count() << "ms\t" << function_name_ << '\n';
         }
     }
 };
