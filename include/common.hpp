@@ -22,6 +22,19 @@
 #include <unordered_map>
 #include <vector>
 
+// from htslib bgzf.c
+typedef struct {
+    uint64_t uaddr; // offset w.r.t. uncompressed data
+    uint64_t caddr; // offset w.r.t. compressed data
+} bgzidx1_t;
+
+// from htslib bgzf.c
+struct bgzidx_t {
+    int noffs, moffs;     // the size of the index, n:used, m:allocated
+    bgzidx1_t *offs;      // offsets
+    uint64_t ublock_addr; // offset of the current block (uncompressed data)
+};
+
 struct region_label_t {
     uint32_t pid_s : 24; // region start position id
     uint32_t label : 8;
