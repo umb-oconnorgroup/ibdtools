@@ -115,13 +115,14 @@ class MetaFile
     }
 
     void
-    read_from_file(BGZF *fp)
+    read_from_file(BGZF *fp, bool read_genotype = true)
     {
         chromosomes.read_from_file(fp);
         gmap.read_from_file(fp);
         samples.read_from_file(fp);
         positions.read_from_file(fp);
-        genotypes.read_from_file(fp);
+        if (read_genotype)
+            genotypes.read_from_file(fp);
     }
 
     void
