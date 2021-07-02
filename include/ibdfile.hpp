@@ -117,7 +117,6 @@ class IbdFile
         StringViewSplitter svs("\t");
         std::string strval;
         uint32_t u32val;
-        uint8_t u8val;
         ibd_rec2_t rec2;
 
         while ((res = bgzf_getline(fp_in, '\n', &kstr)) > 0) {
@@ -142,11 +141,13 @@ class IbdFile
 
             // add bit operator to avoid error when reading brownning's merged file
             rec2.hid1 = ((u32val - 1) & 0x1); // raw is 1, 2 for hap; encoded is 0, 1
-            svs.get(col_hap2, u8val);
+            svs.get(col_hap2, u32val);
             rec2.hid2 = ((u32val - 1) & 0x1); // raw is 1, 2 for hap; encoded is 0, 1
 
-            if (rec2.sid1 < rec2.sid2)
+            if (rec2.sid1 < rec2.sid2) {
                 std::swap(rec2.sid1, rec2.sid2);
+                std::swap(rec2.hid1, rec2.hid2);
+            }
 
             // push_back to vector
             ibd_vec.push_back(rec2);
