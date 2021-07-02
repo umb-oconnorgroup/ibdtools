@@ -132,7 +132,7 @@ class IbdMatrix
         if (use_hap_pair)
             d *= 2;
 
-        cm10x_vec.resize(get_array_size());
+        cm10x_vec.resize(get_array_size(), 0);
 
         bool read_full;
         auto &in_vec = ibdfile.get_vec();

@@ -24,7 +24,8 @@ class MetaFile
   public:
     MetaFile() {}
     void
-    parse_files(const char *vcf_fn, const char *gmap_fn, bool parse_genotype = true, std::string chr_name = "0")
+    parse_files(const char *vcf_fn, const char *gmap_fn, bool parse_genotype = true,
+        std::string chr_name = "0")
     {
         // ScopedTimer timer("vcffile-parse_files");
 
@@ -38,8 +39,8 @@ class MetaFile
         auto nsam = header->n[BCF_DT_SAMPLE];
 
         genotypes = Genotypes(nsam);
-	chromosomes.add(chr_name, 0, 0);
-        positions = Positions(chromosomes.get_id(chr_name)); 
+        chromosomes.add(chr_name, 0, 0);
+        positions = Positions(chromosomes.get_id(chr_name));
         GeneticMap gmap(-1, gmap_fn);
 
         // add names to the Samples object
