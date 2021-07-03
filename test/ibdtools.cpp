@@ -52,7 +52,7 @@ ibdtools_encode_main(int argc, char *argv[])
 
         notify(vm);
 
-        cerr << "Options received: \n";
+        cerr << "ibdtools encode options received: \n";
         cerr << "--ibd_in: " << ibd_in_fn << '\n';
         cerr << "--vcf_in: " << vcf_in_fn << '\n';
         cerr << "--gmap_in: " << map_in_fn << '\n';
@@ -116,7 +116,7 @@ ibdtools_coverage_main(int argc, char *argv[])
         }
 
         notify(vm);
-        cerr << "Options received: \n";
+        cerr << "ibdtools coverage options received: \n";
         cout << "--ibd_in: " << ibd_in_fn << '\n';
         cout << "--meta: " << meta_in_fn << '\n';
         cout << "--out: " << coverage_out_fn << '\n';
@@ -156,7 +156,7 @@ ibdtools_split_main(int argc, char *argv[])
             "input metafile (encoded)");
         add("window_cM,W", value<float>(&window_cM)->default_value(2.0),
             "window to count SNPs (cM)");
-        add("min_snp_in_window,S", value<size_t>(&min_snp_in_window)->default_value(2.0),
+        add("min_snp_in_window,S", value<size_t>(&min_snp_in_window)->default_value(10),
             "window to count SNPs (cM)");
         add("min_cM", value<float>(&min_cM)->default_value(2.0),
             "mininum length to keep after splitting (cM)");
@@ -175,7 +175,7 @@ ibdtools_split_main(int argc, char *argv[])
 
         notify(vm);
 
-        cerr << "Options received: \n";
+        cerr << "ibdtools split options received: \n";
         cout << "--ibd_in: " << ibd_in_fn << '\n';
         cout << "--out: " << out_prefix << '\n';
         cout << "--meta: " << meta_in_fn << '\n';
@@ -238,7 +238,7 @@ ibdtools_sort_main(int argc, char *argv[])
         }
         notify(vm);
 
-        cerr << "Options received: \n";
+        cerr << "ibdtools sort options received: \n";
         cerr << "--ibd_in: " << ibd_in << '\n';
         cerr << "--ibd_out: " << ibd_out << '\n';
         cerr << "--mem: " << mem << '\n';
@@ -292,7 +292,7 @@ ibdtools_merge_main(int argc, char *argv[])
         }
         notify(vm);
 
-        cerr << "Options received: \n";
+        cerr << "ibdtools merge options received: \n";
         cerr << "--ibd_in: " << ibd_in << '\n';
         cerr << "--ibd_out: " << ibd_out << '\n';
         cerr << "--max_snp: " << max_snp << '\n';
@@ -348,7 +348,7 @@ ibdtools_matrix_main(int argc, char *argv[])
 
         notify(vm);
 
-        cerr << "Options received: \n";
+        cerr << "ibdtools matrix options received: \n";
         cerr << "--ibd_in: " << ibd_in << '\n';
         cerr << "--meta_in: " << meta_in << '\n';
         cerr << "--out_prefix: " << out_prefix << '\n';
@@ -444,7 +444,7 @@ ibdtools_decode_main(int argc, char *argv[])
 
         notify(vm);
 
-        cerr << "Options received: \n";
+        cerr << "ibdtools decode options received: \n";
         cerr << "--ibd_in: " << ibd_in << '\n';
         cerr << "--meta_in: " << meta_in << '\n';
         cerr << "--ibd_out: " << ibd_out << '\n';
@@ -481,6 +481,7 @@ ibdtools_view_main(int argc, char *argv[])
 {
     string ibd_in, meta_in;
     uint32_t sid1, sid2;
+    string sample1, sample2;
     float mem;
     options_description desc{ "ibdtools view" };
 
@@ -490,10 +491,12 @@ ibdtools_view_main(int argc, char *argv[])
             "input IBD file (encoded, unsorted)");
         add("meta_in,m", value<string>(&meta_in)->required(),
             "output ibd file (encoded");
-        add("sid1,1", value<uint32_t>(&sid1)->default_value(1),
-            "no. way for the merging step");
-        add("sid2,2", value<uint32_t>(&sid2)->default_value(0),
-            "no. way for the merging step");
+        add("sid1,1", value<uint32_t>(&sid1)->default_value(1), "id for sample 1");
+        add("sid2,2", value<uint32_t>(&sid2)->default_value(0), "id for sample 2");
+        add("sample1", value<string>(&sample1)->default_value(""),
+            "name for sample 1. If not empty will override --sid1");
+        add("sample2", value<string>(&sample2)->default_value(""),
+            "name for sample 2. If not empty will override --sid2");
         add("mem,M", value<float>(&mem)->default_value(10.0), "RAM to use (Gb)");
         add("help,h", "print help message");
 
@@ -506,11 +509,16 @@ ibdtools_view_main(int argc, char *argv[])
         }
         notify(vm);
 
-        cerr << "Options received: \n";
+        cerr << "ibdtools view options received: \n";
         cerr << "--ibd_in: " << ibd_in << '\n';
         cerr << "--meta_in: " << meta_in << '\n';
-        cerr << "--sid1: " << sid1 << '\n';
-        cerr << "--sid2: " << sid2 << '\n';
+        if (sample1 != "" || sample2 != "") {
+            cerr << "--sample1: " << sample1 << '\n';
+            cerr << "--sample2: " << sample2 << '\n';
+        } else {
+            cerr << "--sid1: " << sid1 << '\n';
+            cerr << "--sid2: " << sid2 << '\n';
+        }
         cerr << "--mem: " << mem << '\n';
 
     } catch (const error &ex) {
@@ -530,12 +538,23 @@ ibdtools_view_main(int argc, char *argv[])
     ibdfile.open("r");
     bool read_full;
     auto &pos = meta.get_positions();
+    auto &samples = meta.get_samples();
+    auto chrname = meta.get_chromosomes().get_name(pos.get_chrom_id());
 
-    if (sid1 < sid2)
+    // samepl name overried sid
+    if (sample1 != "" || sample2 != "") {
+        assert(sample1 != "" && sample2 != "" && sample1 != sample2);
+        sid1 = meta.get_samples().get_id(sample1);
+        sid2 = meta.get_samples().get_id(sample2);
+    }
+
+    if (sid1 < sid2) {
         std::swap(sid1, sid2);
+        std::swap(sample1, sample2);
+    }
 
     std::cout << "sid1: " << sid1 << " sample1: " << meta.get_samples().get_name(sid1)
-              << "sid2: " << sid2 << " sample2: " << meta.get_samples().get_name(sid2)
+              << " sid2: " << sid2 << " sample2: " << meta.get_samples().get_name(sid2)
               << '\n';
     do {
         read_full = ibdfile.read_from_file();
@@ -545,9 +564,12 @@ ibdtools_view_main(int argc, char *argv[])
 
                 float cm1 = pos.get_cm(x.pid1);
                 float cm2 = pos.get_cm(x.get_pid2());
-                std::cout << x.sid1 << '\t' << x.hid1 << '\t' << x.sid2 << '\t' << x.hid2
-                          << '\t' << x.pid1 << '\t' << x.get_pid2() << '\t' << cm1
-                          << '\t' << cm2 << '\t' << cm2 - cm1 << '\n';
+                uint32_t start = pos.get_bp(x.pid1);
+                uint32_t end = pos.get_bp(x.get_pid2());
+                string &s1 = samples.get_name(x.sid1);
+                string &s2 = samples.get_name(x.sid2);
+                fmt::print("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", s1, x.get_hid1(), s2,
+                    x.get_hid2(), chrname, start, end, cm2 - cm1);
             }
         }
     } while (read_full);
