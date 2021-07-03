@@ -31,7 +31,7 @@ class Samples
     uint32_t
     get_id(const std::string name)
     {
-        return name2id_map[name];
+        return name2id_map.at(name);
     }
 
     // for debugging
