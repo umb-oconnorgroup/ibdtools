@@ -941,16 +941,53 @@ TEST(ibdtools, IbdCoverage_exact)
     EXPECT_EQ(cov2.get_count_vec()[12], 0);
 }
 
+TEST(ibdtools, bgzidx)
+{
+
+    {
+        MetaFile meta;
+        meta.parse_files(vcf_fn, map_fn, true);
+        BGZF *fp = bgzf_open(temp_file1, "w");
+        bgzf_index_build_init(fp);
+        meta.write_to_file(fp);
+        assert(0 == bgzf_index_dump(fp, temp_file1, ".gzi"));
+        bgzf_close(fp);
+    }
+    {
+        BGZF *fp = bgzf_open(temp_file1, "r");
+        assert(0 == bgzf_index_load(fp, temp_file1, ".gzi"));
+
+        // How to
+        /*
+        auto idx = fp->idx;
+        std::cerr << "moffs: " << idx->moffs << " noffs: " << idx->noffs;
+            for (size_t i = 0; i < idx->noffs; i++) {
+
+                std::cerr << " uaddr: " << idx->offs[i].uaddr
+                          << " caddr:" << idx->offs[i].caddr;
+                assert(0 == bgzf_useek(fp, idx->offs[i].uaddr, SEEK_SET));
+                assert(0 == bgzf_read_block(fp));
+                char c;
+                std::cerr << " block_length:" << fp->block_length << '\n';
+                if (1 == bgzf_read(fp, &c, 1))
+                    std::cerr << "after read 1: " << fp->uncompressed_address;
+                if (9 == bgzf_read(fp, &c, 9))
+                    std::cerr << " after read 9" << fp->uncompressed_address << '\n';
+            }
+        */
+    }
+}
+
 int
 main(int argc, char **argv)
 {
-    bool targeted_test = true;
+    bool targeted_test = false;
 
     if (targeted_test) {
         int myargc = 2;
         char *myargv[2];
         char arg1[] = "./gtest";
-        char arg2[] = "--gtest_filter=ibdtools.IbdMatrix";
+        char arg2[] = "--gtest_filter=ibdtools.bgzidx";
         myargv[0] = arg1;
         myargv[1] = arg2;
         ::testing::InitGoogleTest(&myargc, myargv);
