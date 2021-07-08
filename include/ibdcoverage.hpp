@@ -4,6 +4,7 @@
 #include "ibdfile.hpp"
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 
 class IbdCoverage
@@ -17,6 +18,8 @@ class IbdCoverage
     // inputs
     IbdFile in;
     MetaFile meta;
+    std::vector<uint8_t> subpop_v; // vector of 0's and 1's , 1 means sample is of a
+                                   // subpopultion of interest
 
     // for parallelization
     using Iter = std::vector<ibd_rec1_t>::iterator;
@@ -32,15 +35,26 @@ class IbdCoverage
   public:
     IbdCoverage() {}
     IbdCoverage(const char *ibd_fn, const char *meta_fn, float win_in_cM = 1.0,
-        size_t max_rec_ram = 1 * 1024 * 1024)
+        size_t max_rec_ram = 1 * 1024 * 1024, const char *subpop_fn = NULL)
         : window_in_cM(win_in_cM)
     {
-
         // read meta file
         BGZF *fp = bgzf_open(meta_fn, "r");
         assert(fp != NULL);
         meta.read_from_file(fp);
         bgzf_close(fp);
+
+        // parse subpop
+        if (subpop_fn != NULL) {
+            auto &samples = meta.get_samples();
+            subpop_v.resize(samples.get_num_samples(), 0);
+            std::ifstream ifs(subpop_fn);
+            std::string line;
+            while (getline(ifs, line, '\n')) {
+                uint32_t sid = samples.get_id(line);
+                subpop_v[sid] = 1;
+            }
+        }
 
         // prepare ibdfile object
         in = IbdFile(ibd_fn, &meta, max_rec_ram);
@@ -64,6 +78,9 @@ class IbdCoverage
         for (auto &grp : grps_vec) {
             grp.grp_cnt_vec.resize(cm_vec.size(), 0);
         }
+
+        assert(subpop_v.size() == meta.get_samples().get_num_samples()
+               || subpop_v.size() == 0);
     }
 
     // 1. read chunk to memory
@@ -136,6 +153,12 @@ class IbdCoverage
         auto &pos = meta.get_positions();
 
         for (Iter it = grp.first; it < grp.last; it++) {
+
+            // when the subpop vector is in use, if any of the sample in the ibd rec
+            // is not in subpop, skip counting coverage for this vector
+            if (subpop_v.size() != 0
+                && (subpop_v[it->get_sid1()] == 0 || subpop_v[it->get_sid2()] == 0))
+                continue;
 
             //  upper_bound:    a[i-1] <= x < a[i]
             //  lower_bound:    a[i-1] < x <= a[i]

@@ -93,7 +93,7 @@ ibdtools_encode_main(int argc, char *argv[])
 int
 ibdtools_coverage_main(int argc, char *argv[])
 {
-    string ibd_in_fn, meta_in_fn, coverage_out_fn;
+    string ibd_in_fn, meta_in_fn, coverage_out_fn, subpop_fn;
     float mem = 10.0;   // 10gb
     float window = 1.0; // 1cM
 
@@ -102,6 +102,8 @@ ibdtools_coverage_main(int argc, char *argv[])
         auto add = desc.add_options();
         add("ibd_in,i", value<string>(&ibd_in_fn)->required(), "encoded ibd file");
         add("meta,m", value<string>(&meta_in_fn)->required(), "meta file");
+        add("subpop_samples,P", value<string>(&subpop_fn)->default_value(""),
+            "file contains a list subpopulation samples");
         add("mem", value<float>(&mem)->default_value(10.0), "RAM to use in Gb");
         add("window", value<float>(&window)->default_value(1.0), "window size in cM");
         add("out,o", value<string>(&coverage_out_fn)->required(),
@@ -119,6 +121,7 @@ ibdtools_coverage_main(int argc, char *argv[])
         cerr << "ibdtools coverage options received: \n";
         cout << "--ibd_in: " << ibd_in_fn << '\n';
         cout << "--meta: " << meta_in_fn << '\n';
+        cout << "--subpop_samples: " << subpop_fn << '\n';
         cout << "--out: " << coverage_out_fn << '\n';
         cout << "--mem: " << mem << '\n';
         cout << "--window: " << window << '\n';
@@ -129,8 +132,12 @@ ibdtools_coverage_main(int argc, char *argv[])
         exit(-1);
     }
 
-    IbdCoverage cov(
-        ibd_in_fn.c_str(), meta_in_fn.c_str(), 1.0, mem / 10 * 1024 * 1024 * 1024);
+    const char *subpop_fn_char = NULL;
+    if (subpop_fn != "")
+        subpop_fn_char = subpop_fn.c_str();
+
+    IbdCoverage cov(ibd_in_fn.c_str(), meta_in_fn.c_str(), 1.0,
+        mem / 10 * 1024 * 1024 * 1024, subpop_fn_char);
     cov.calculate_coverage();
     ofstream ofs(coverage_out_fn);
     cov.summary(ofs, 3000);
