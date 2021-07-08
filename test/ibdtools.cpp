@@ -136,7 +136,7 @@ ibdtools_coverage_main(int argc, char *argv[])
     if (subpop_fn != "")
         subpop_fn_char = subpop_fn.c_str();
 
-    IbdCoverage cov(ibd_in_fn.c_str(), meta_in_fn.c_str(), 1.0,
+    IbdCoverage cov(ibd_in_fn.c_str(), meta_in_fn.c_str(), window,
         mem / 10 * 1024 * 1024 * 1024, subpop_fn_char);
     cov.calculate_coverage();
     ofstream ofs(coverage_out_fn);
