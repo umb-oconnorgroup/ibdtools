@@ -37,8 +37,8 @@ ibdtools_encode_main(int argc, char *argv[])
             "recombination map file");
         add("chr_name,c", value<string>(&chr_name)->required(), "chromosome name or id");
         add("ibd_out,o", value<string>(&ibd_out_fn)->required(), "output ibd(encoded)");
-        add("meta_out,m", value<string>(&meta_out_fn)->required(), "RAM to use (Gb)");
-        add("mem,M1", value<float>(&mem)->default_value(10.0), "output metafile");
+        add("meta_out,m", value<string>(&meta_out_fn)->required(), "output metafile");
+        add("mem,M1", value<float>(&mem)->default_value(10.0), "RAM to use (Gb)");
         add("help,h", "print help information");
 
         variables_map vm;
@@ -89,6 +89,73 @@ ibdtools_encode_main(int argc, char *argv[])
     return 0;
 }
 ////////////////////////////////////////////////////////////
+int
+ibdtools_snpdens_main(int argc, char *argv[])
+{
+
+    string meta_in_fn, snp_density_fn;
+    float window_cM;
+
+    options_description desc{ "ibdtools snpdens" };
+
+    try {
+        auto add = desc.add_options();
+
+        add("meta_in,m", value<string>(&meta_in_fn)->required(), "input meta file");
+        add("window_cM,W", value<float>(&window_cM)->default_value(2.0),
+            "window size in cM");
+        add("snp_density_out,o", value<string>(&snp_density_fn)->required(),
+            "output snp desnity (txt file)");
+        add("help,h", "print help information");
+
+        variables_map vm;
+        auto options = parse_command_line(argc, argv, desc);
+        store(options, vm);
+
+        if (vm.count("help")) {
+            cerr << desc << '\n';
+            exit(-1);
+        }
+
+        notify(vm);
+
+        cerr << "ibdtools snpdens options received: \n";
+        cerr << "--meta_in: " << meta_in_fn << '\n';
+        cerr << "--window_cM: " << window_cM << '\n';
+        cerr << "--snp_density_out: " << snp_density_fn << '\n';
+
+    } catch (const error &ex) {
+        cerr << ex.what() << '\n';
+        cerr << desc << '\n';
+        exit(-1);
+    }
+
+    // open file for save meta file
+    BGZF *fp = NULL;
+    fp = bgzf_open(meta_in_fn.c_str(), "r");
+    assert(fp != NULL);
+
+    MetaFile meta;
+    meta.read_from_file(fp, false);
+    bgzf_close(fp);
+    fp = NULL;
+
+    // output snp density file
+    ofstream ofs(snp_density_fn);
+    auto counts = meta.get_positions().get_window_counts(window_cM);
+    ofs << "# Chromosome: "
+        << meta.get_chromosomes().get_name(meta.get_positions().get_chrom_id()) << '\n';
+    ofs << "# Window size (cM) : " << window_cM << '\n';
+    ofs << "# No. of windows: " << counts.size() << '\n';
+    ofs << "cM\tCount\n";
+    for (size_t i = 0; i < counts.size(); i++)
+        ofs << window_cM * i << '\t' << counts[i] << '\n';
+
+    return 0;
+}
+//
+//
+//
 
 int
 ibdtools_coverage_main(int argc, char *argv[])
@@ -614,6 +681,8 @@ main(int argc, char *argv[])
         ScopedTimer timer("run time", true);
         if (subcmd == "encode") {
             return ibdtools_encode_main(argc - 1, argv + 1);
+        } else if (subcmd == "snpdens") {
+            return ibdtools_snpdens_main(argc - 1, argv + 1);
         } else if (subcmd == "coverage") {
             return ibdtools_coverage_main(argc - 1, argv + 1);
         } else if (subcmd == "split") {
