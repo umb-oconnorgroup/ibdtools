@@ -140,7 +140,7 @@ ibdtools_coverage_main(int argc, char *argv[])
         mem / 10 * 1024 * 1024 * 1024, subpop_fn_char);
     cov.calculate_coverage();
     ofstream ofs(coverage_out_fn);
-    cov.summary(ofs, 3000);
+    cov.summary(ofs, 0);
     return 0;
 }
 

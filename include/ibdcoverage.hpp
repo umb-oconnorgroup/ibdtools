@@ -213,6 +213,7 @@ class IbdCoverage
         bgzf_close(fp);
     }
 
+    // if print_n = 0, print all records
     void
     summary(std::ostream &os, size_t print_n = 10)
     {
@@ -220,6 +221,8 @@ class IbdCoverage
         os << "# Records processed: " << total_rec_processed << '\n';
         os << "# Coverage:\n";
         os << "cM\tCount\n";
+        if (print_n == 0)
+            print_n = cm_vec.size();
         for (size_t i = 0; i < print_n && i < cm_vec.size(); i++)
             os << cm_vec[i] << '\t' << count_vec[i] << '\n';
         if (print_n < cm_vec.size())
