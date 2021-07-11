@@ -1035,6 +1035,11 @@ TEST(ibdtools, add_excluded_region)
     add_exclusion_range(result_v, 6, 11);
     expected_v = { { 1, 0 }, { 2, 1 }, { 5, 0 }, { 11, 1 }, { 15, 0 }, { 18, 1 } };
     EXPECT_EQ(result_v, expected_v);
+
+    result_v = label_v_orig;
+    add_exclusion_range(result_v, 6, 20);
+    expected_v = { { 1, 0 }, { 2, 1 }, { 5, 0 }, { 20, 1 } };
+    EXPECT_EQ(result_v, expected_v);
 }
 
 int
