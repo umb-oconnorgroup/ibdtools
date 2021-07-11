@@ -86,8 +86,8 @@ class IbdMatrix
 
         std::string gzi(matrix_fn);
         gzi += ".gzi";
-        std::filesystem::exists(gzi);
-        assert(0 == bgzf_index_load(fp, matrix_fn, ".gzi"));
+        if (std::filesystem::exists(gzi))
+            assert(0 == bgzf_index_load(fp, matrix_fn, ".gzi"));
 
         read_element_from_file(is_hap_pair_m, fp);
         read_element_from_file(d, fp);
@@ -117,7 +117,17 @@ class IbdMatrix
     }
 
     void
-    calculate_total_from_ibdfile(IbdFile &ibdfile, bool use_hap_pair = false)
+    add_matrix(const IbdMatrix &mat2)
+    {
+        std::cerr << "mat == mat2: " << (cm10x_vec == mat2.cm10x_vec) << '\n';
+        assert(d == mat2.d);
+        std::transform(cm10x_vec.begin(), cm10x_vec.end(), mat2.cm10x_vec.begin(),
+            cm10x_vec.begin(), std::plus<uint16_t>());
+    }
+
+    void
+    calculate_total_from_ibdfile(
+        IbdFile &ibdfile, bool use_hap_pair = false, const char *subpop_fn = NULL)
     {
         MetaFile *meta = ibdfile.get_meta();
         assert(meta != NULL && "calculate total need info from the meta file");
@@ -162,6 +172,7 @@ class IbdMatrix
                 for (auto rec : in_vec) {
                     row = rec.get_sid1();
                     col = rec.get_sid2();
+
                     pid1 = rec.get_pid1();
                     pid2 = rec.get_pid2();
                     at(row, col) += lround((pos.get_cm(pid2) - pos.get_cm(pid1)) * 10);
@@ -172,16 +183,42 @@ class IbdMatrix
 
     // @win_size_in_10th_cm: 1 means 0.1cm window; 2 means 0.2cm ...
     void
-    get_histogram(std::vector<size_t> &count_vec, uint16_t win_size_in_10th_cm = 1)
+    get_histogram(std::vector<size_t> &count_vec, uint16_t win_size_in_10th_cm = 1,
+        MetaFile *meta = NULL, const char *subpop_fn = NULL, bool use_hap_pair = false)
     {
         auto max_element = std::max_element(cm10x_vec.begin(), cm10x_vec.end());
         uint16_t max_val = *max_element;
         size_t sz = max_val / win_size_in_10th_cm
                     + ((max_val % win_size_in_10th_cm) ? 1 : 0) + 1;
 
+        // for subpopulation
+        std::vector<uint8_t> subpop_v; // vector of 0's and 1's , 1 means sample is of a
+                                       // subpopultion of interest
+        if (subpop_fn != NULL) {
+            assert(meta != NULL);
+            meta->get_samples().get_subpop_vector(subpop_fn, subpop_v);
+
+            // debgu
+            // size_t sz = 0;
+            // for (auto x : subpop_v)
+            //     if (x != 0)
+            //         sz++;
+            // std::cerr << "subpop size: " << sz << '\n';
+        }
+
         count_vec.resize(sz, 0);
-        for (size_t i = 0; i < cm10x_vec.size(); i++)
-            count_vec[cm10x_vec[i / win_size_in_10th_cm]]++;
+
+        uint32_t sid1, sid2;
+        for (size_t row = 1; row < d; row++)
+            for (size_t col = 0; col < row; col++) {
+                sid1 = use_hap_pair ? (row >> 1) : row;
+                sid2 = use_hap_pair ? (col >> 1) : col;
+
+                if (subpop_v.size() != 0 && (subpop_v[sid1] == 0 || subpop_v[sid2] == 0))
+                    continue;
+
+                count_vec[at(row, col) / win_size_in_10th_cm]++;
+            }
     }
 
     // keep any element x if low <= x < upper and set other element to 0
