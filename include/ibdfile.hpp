@@ -174,7 +174,8 @@ class IbdFile
     }
 
     void
-    to_raw_ibd(const char *raw_ibd_fn, size_t line_buffer_capcity = 10 * 1024 * 1024)
+    to_raw_ibd(const char *raw_ibd_fn, size_t line_buffer_capcity = 10 * 1024 * 1024,
+        const char *subpop_fn = NULL)
     {
         assert(fp != NULL);
         assert(meta != NULL && "decode need meta");
@@ -195,6 +196,12 @@ class IbdFile
 
         // threading
         bgzf_mt(fp_out, 10, 256);
+
+        // subpoplation samples_ids
+
+        std::vector<uint8_t> subpop_v;
+        if (subpop_fn != NULL)
+            samples.get_subpop_vector(subpop_fn, subpop_v);
 
         // loop read in from encoded file and write to decoded file
         bool did_vec_read_full;
@@ -227,12 +234,21 @@ class IbdFile
                     //
                     line_buffer.clear();
                 } else {
+
+                    uint32_t sid1 = rec.get_sid1();
+                    uint32_t sid2 = rec.get_sid2();
+
+                    // if either of the two samples is not in the subpop then skip
+                    if (subpop_v.size() > 0
+                        && (subpop_v[sid1] == 0 || subpop_v[sid2] == 0)) {
+                        continue;
+                    }
+
                     // add the string version of each rec to line buffer
                     fmt::format_to(std::back_inserter(line_buffer),
-                        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
-                        samples.get_name(rec.get_sid1()), rec.get_hid1() + 1,
-                        samples.get_name(rec.get_sid2()), rec.get_hid2() + 1, chrom_name,
-                        positions.get_bp(rec.get_pid1()),
+                        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", samples.get_name(sid1),
+                        rec.get_hid1() + 1, samples.get_name(sid2), rec.get_hid2() + 1,
+                        chrom_name, positions.get_bp(rec.get_pid1()),
                         positions.get_bp(rec.get_pid2()),
                         positions.get_cm(rec.get_pid2())
                             - positions.get_cm(rec.get_pid1()));

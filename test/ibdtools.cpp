@@ -563,7 +563,7 @@ int
 ibdtools_decode_main(int argc, char *argv[])
 {
 
-    string ibd_in, meta_in, ibd_out;
+    string ibd_in, meta_in, ibd_out, subpop_fn;
     float mem = 10.0;
 
     options_description desc{ "ibdtools decode" };
@@ -573,6 +573,8 @@ ibdtools_decode_main(int argc, char *argv[])
 
         add("ibd_in,i", value<string>(&ibd_in)->required(), "input ibd file (encoded)");
         add("meta_in,m", value<string>(&meta_in)->required(), "RAM to use (Gb)");
+        add("subpop_samples,P", value<string>(&subpop_fn)->default_value("(None)"),
+            "file contains a list subpopulation samples");
         add("mem,M", value<float>(&mem)->default_value(10.0), "output metafile");
         add("ibd_out,o", value<string>(&ibd_out)->required(), "output ibd file(txt)");
         add("help,h", "print help information");
@@ -591,8 +593,9 @@ ibdtools_decode_main(int argc, char *argv[])
         cerr << "ibdtools decode options received: \n";
         cerr << "--ibd_in: " << ibd_in << '\n';
         cerr << "--meta_in: " << meta_in << '\n';
-        cerr << "--ibd_out: " << ibd_out << '\n';
+        cerr << "--subpop_samples: " << subpop_fn << '\n';
         cerr << "--mem: " << mem << '\n';
+        cerr << "--ibd_out: " << ibd_out << '\n';
 
     } catch (const error &ex) {
         cerr << ex.what() << '\n';
@@ -610,10 +613,15 @@ ibdtools_decode_main(int argc, char *argv[])
     bgzf_close(fp);
     fp = NULL;
 
+    const char *subpop_fn_char = NULL;
+    if (subpop_fn != "(None)")
+        subpop_fn_char = subpop_fn.c_str();
+
     // decode ibdfile
     IbdFile ibdfile(ibd_in.c_str(), &meta, mem / 10.0 * 0.33 * 1024 * 1024 * 1024);
     ibdfile.open("r");
-    ibdfile.to_raw_ibd(ibd_out.c_str(), mem / 10.0 * 0.66 * 1024 * 1024 * 1024);
+    ibdfile.to_raw_ibd(
+        ibd_out.c_str(), mem / 10.0 * 0.66 * 1024 * 1024 * 1024, subpop_fn_char);
     ibdfile.close();
 
     return 0;
