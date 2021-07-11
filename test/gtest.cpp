@@ -978,16 +978,75 @@ TEST(ibdtools, bgzidx)
     }
 }
 
+TEST(ibdtools, add_excluded_region)
+{
+    std::vector<region_label_t> label_v_orig
+        = { { 1, 0 }, { 2, 1 }, { 5, 0 }, { 11, 1 }, { 15, 0 }, { 18, 1 } };
+
+    std::vector<region_label_t> expected_v, result_v;
+
+    result_v = label_v_orig;
+    add_exclusion_range(result_v, 3, 4);
+    expected_v = { { 1, 0 }, { 2, 1 }, { 3, 0 }, { 4, 1 }, { 5, 0 }, { 11, 1 },
+        { 15, 0 }, { 18, 1 } };
+    EXPECT_EQ(result_v, expected_v);
+
+    result_v = label_v_orig;
+    add_exclusion_range(result_v, 2, 4);
+    expected_v = { { 1, 0 }, { 4, 1 }, { 5, 0 }, { 11, 1 }, { 15, 0 }, { 18, 1 } };
+    EXPECT_EQ(result_v, expected_v);
+
+    result_v = label_v_orig;
+    add_exclusion_range(result_v, 6, 8);
+    expected_v = label_v_orig;
+    EXPECT_EQ(result_v, expected_v);
+
+    result_v = label_v_orig;
+    add_exclusion_range(result_v, 2, 13);
+    expected_v = { { 1, 0 }, { 13, 1 }, { 15, 0 }, { 18, 1 } };
+    EXPECT_EQ(result_v, expected_v);
+
+    result_v = label_v_orig;
+    add_exclusion_range(result_v, 3, 13);
+    expected_v = { { 1, 0 }, { 2, 1 }, { 3, 0 }, { 13, 1 }, { 15, 0 }, { 18, 1 } };
+    EXPECT_EQ(result_v, expected_v);
+
+    result_v = label_v_orig;
+    add_exclusion_range(result_v, 3, 7);
+    expected_v = { { 1, 0 }, { 2, 1 }, { 3, 0 }, { 11, 1 }, { 15, 0 }, { 18, 1 } };
+    EXPECT_EQ(result_v, expected_v);
+
+    result_v = label_v_orig;
+    add_exclusion_range(result_v, 2, 7);
+    expected_v = { { 1, 0 }, { 11, 1 }, { 15, 0 }, { 18, 1 } };
+    EXPECT_EQ(result_v, expected_v);
+
+    result_v = label_v_orig;
+    add_exclusion_range(result_v, 6, 15);
+    expected_v = { { 1, 0 }, { 2, 1 }, { 5, 0 }, { 18, 1 } };
+    EXPECT_EQ(result_v, expected_v);
+
+    result_v = label_v_orig;
+    add_exclusion_range(result_v, 6, 14);
+    expected_v = { { 1, 0 }, { 2, 1 }, { 5, 0 }, { 14, 1 }, { 15, 0 }, { 18, 1 } };
+    EXPECT_EQ(result_v, expected_v);
+
+    result_v = label_v_orig;
+    add_exclusion_range(result_v, 6, 11);
+    expected_v = { { 1, 0 }, { 2, 1 }, { 5, 0 }, { 11, 1 }, { 15, 0 }, { 18, 1 } };
+    EXPECT_EQ(result_v, expected_v);
+}
+
 int
 main(int argc, char **argv)
 {
-    bool targeted_test = false;
+    bool targeted_test = true;
 
     if (targeted_test) {
         int myargc = 2;
         char *myargv[2];
         char arg1[] = "./gtest";
-        char arg2[] = "--gtest_filter=ibdtools.bgzidx";
+        char arg2[] = "--gtest_filter=ibdtools.add_excluded_region";
         myargv[0] = arg1;
         myargv[1] = arg2;
         ::testing::InitGoogleTest(&myargc, myargv);
