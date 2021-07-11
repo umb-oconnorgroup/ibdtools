@@ -180,22 +180,22 @@ ibdtools_coverage_main(int argc, char *argv[])
         store(parse_command_line(argc, argv, desc), vm);
 
         if (vm.count("help")) {
-            cout << desc << '\n';
+            cerr << desc << '\n';
             exit(1);
         }
 
         notify(vm);
         cerr << "ibdtools coverage options received: \n";
-        cout << "--ibd_in: " << ibd_in_fn << '\n';
-        cout << "--meta: " << meta_in_fn << '\n';
-        cout << "--subpop_samples: " << subpop_fn << '\n';
-        cout << "--out: " << coverage_out_fn << '\n';
-        cout << "--mem: " << mem << '\n';
-        cout << "--window: " << window << '\n';
+        cerr << "--ibd_in: " << ibd_in_fn << '\n';
+        cerr << "--meta: " << meta_in_fn << '\n';
+        cerr << "--subpop_samples: " << subpop_fn << '\n';
+        cerr << "--out: " << coverage_out_fn << '\n';
+        cerr << "--mem: " << mem << '\n';
+        cerr << "--window: " << window << '\n';
 
     } catch (const error &ex) {
         cerr << ex.what() << '\n';
-        cout << desc << '\n';
+        cerr << desc << '\n';
         exit(-1);
     }
 
@@ -249,25 +249,25 @@ ibdtools_split_main(int argc, char *argv[])
         store(parse_command_line(argc, argv, desc), vm);
 
         if (vm.count("help")) {
-            cout << desc << '\n';
+            cerr << desc << '\n';
             exit(1);
         }
 
         notify(vm);
 
         cerr << "ibdtools split options received: \n";
-        cout << "--ibd_in: " << ibd_in_fn << '\n';
-        cout << "--meta_in: " << meta_in_fn << '\n';
-        cout << "--window_cM: " << window_cM << '\n';
+        cerr << "--ibd_in: " << ibd_in_fn << '\n';
+        cerr << "--meta_in: " << meta_in_fn << '\n';
+        cerr << "--window_cM: " << window_cM << '\n';
         cerr << "--min_snp_in_window: " << min_snp_in_window << '\n';
-        cout << "--min_cM: " << min_cM << '\n';
+        cerr << "--min_cM: " << min_cM << '\n';
         cerr << "exclusion_range_fn: " << exclusion_range_fn << '\n';
-        cout << "--mem: " << mem << '\n';
-        cout << "--out_prefix: " << out_prefix << '\n';
+        cerr << "--mem: " << mem << '\n';
+        cerr << "--out_prefix: " << out_prefix << '\n';
 
     } catch (const error &ex) {
         cerr << ex.what() << '\n';
-        cout << desc << '\n';
+        cerr << desc << '\n';
         exit(-1);
     }
 
@@ -470,7 +470,7 @@ ibdtools_matrix_main(int argc, char *argv[])
         cerr << '\n';
         cerr << "--meta_in: " << meta_in << '\n';
         cerr << "--hist_win_cM: " << hist_win_cM << '\n';
-        cout << "--subpop_samples: " << subpop_fn << '\n';
+        cerr << "--subpop_samples: " << subpop_fn << '\n';
         cerr << "--out_prefix: " << out_prefix << '\n';
         cerr << "--use_hap_pair: " << use_hap_pair << '\n';
         cerr << "--mem: " << mem << '\n';
@@ -490,12 +490,12 @@ ibdtools_matrix_main(int argc, char *argv[])
     meta.read_from_file(fp);
     bgzf_close(fp);
     fp = NULL;
-    IbdFile ibdfile(ibd_in.c_str(), &meta, mem / 10 * 1024 * 1024 * 1024);
 
     // matrix: calculate total, filter, save and get histogram
     IbdMatrix mat;
 
     if (ibd_in != "") {
+        IbdFile ibdfile(ibd_in.c_str(), &meta, mem / 10 * 1024 * 1024 * 1024);
         ibdfile.open("r");
 
         assert(matrices_in.size() == 0
@@ -507,11 +507,14 @@ ibdtools_matrix_main(int argc, char *argv[])
         assert(
             matrices_in.size() > 1 && "--ibd_in and --matrices_in are mutual exclusive");
         mat.read_matrix_file(matrices_in[0].c_str());
+        cerr << "read matrix: " << matrices_in[0] << '\n';
 
         IbdMatrix mat2;
         for (size_t i = 1; i < matrices_in.size(); i++) {
             mat2.read_matrix_file(matrices_in[i].c_str());
+            cerr << "read matrix: " << matrices_in[i] << '\n';
             mat.add_matrix(mat2);
+            cerr << "add matrix: " << matrices_in[i] << '\n';
         }
     }
 
@@ -694,7 +697,7 @@ ibdtools_view_main(int argc, char *argv[])
         std::swap(sample1, sample2);
     }
 
-    std::cout << "sid1: " << sid1 << " sample1: " << meta.get_samples().get_name(sid1)
+    std::cerr << "sid1: " << sid1 << " sample1: " << meta.get_samples().get_name(sid1)
               << " sid2: " << sid2 << " sample2: " << meta.get_samples().get_name(sid2)
               << '\n';
     do {
