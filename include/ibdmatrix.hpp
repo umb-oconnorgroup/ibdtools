@@ -119,7 +119,7 @@ class IbdMatrix
     void
     add_matrix(const IbdMatrix &mat2)
     {
-        std::cerr << "mat == mat2: " << (cm10x_vec == mat2.cm10x_vec) << '\n';
+        std::cerr << "mat.d: " << d << " mat2.d: " << mat2.d << '\n';
         assert(d == mat2.d);
         std::transform(cm10x_vec.begin(), cm10x_vec.end(), mat2.cm10x_vec.begin(),
             cm10x_vec.begin(), std::plus<uint16_t>());
