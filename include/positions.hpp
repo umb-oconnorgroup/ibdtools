@@ -55,6 +55,13 @@ class Positions
     }
 
     uint32_t
+    get_upper_bound_id(uint32_t bp_pos)
+    {
+        return std::distance(pos_bp_vec.begin(),
+            std::upper_bound(pos_bp_vec.begin(), pos_bp_vec.end(), bp_pos));
+    }
+
+    uint32_t
     get_bp(uint32_t pid)
     {
         return pos_bp_vec[pid];
