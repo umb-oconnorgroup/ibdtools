@@ -610,7 +610,7 @@ ibdtools_decode_main(int argc, char *argv[])
     bgzf_close(fp);
     fp = NULL;
 
-    // encode ibdfile
+    // decode ibdfile
     IbdFile ibdfile(ibd_in.c_str(), &meta, mem / 10.0 * 0.33 * 1024 * 1024 * 1024);
     ibdfile.open("r");
     ibdfile.to_raw_ibd(ibd_out.c_str(), mem / 10.0 * 0.66 * 1024 * 1024 * 1024);

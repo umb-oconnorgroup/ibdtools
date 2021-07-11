@@ -203,6 +203,11 @@ class IbdFile
         std::string chrom_name = positions.get_chrom_id() == -1
                                      ? "0"
                                      : chromosomes.get_name(positions.get_chrom_id());
+        // debug
+        // std::cerr << "chrom_name: " << chrom_name
+        //           << "chrom_id: " << positions.get_chrom_id()
+        //           << " gen_name: " << chromosomes.get_name(positions.get_chrom_id())
+        //           << '\n';
 
         // The outter loop corresponds to each bulk read
         do {
@@ -226,8 +231,7 @@ class IbdFile
                     fmt::format_to(std::back_inserter(line_buffer),
                         "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
                         samples.get_name(rec.get_sid1()), rec.get_hid1() + 1,
-                        samples.get_name(rec.get_sid2()), rec.get_hid2() + 1,
-                        meta->get_positions().get_chrom_id(),
+                        samples.get_name(rec.get_sid2()), rec.get_hid2() + 1, chrom_name,
                         positions.get_bp(rec.get_pid1()),
                         positions.get_bp(rec.get_pid2()),
                         positions.get_cm(rec.get_pid2())
