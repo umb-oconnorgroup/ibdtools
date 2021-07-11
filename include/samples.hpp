@@ -72,6 +72,20 @@ class Samples
     {
         return names_vec.size();
     }
+
+    void
+    get_subpop_vector(const char *subpop_fn, std::vector<uint8_t> &subpop_v)
+    {
+        assert(subpop_fn != NULL);
+
+        subpop_v.resize(get_num_samples(), 0);
+        std::ifstream ifs(subpop_fn);
+        std::string line;
+        while (getline(ifs, line, '\n')) {
+            uint32_t sid = get_id(line);
+            subpop_v[sid] = 1;
+        }
+    }
 };
 
 #endif

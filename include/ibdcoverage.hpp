@@ -45,16 +45,8 @@ class IbdCoverage
         bgzf_close(fp);
 
         // parse subpop
-        if (subpop_fn != NULL) {
-            auto &samples = meta.get_samples();
-            subpop_v.resize(samples.get_num_samples(), 0);
-            std::ifstream ifs(subpop_fn);
-            std::string line;
-            while (getline(ifs, line, '\n')) {
-                uint32_t sid = samples.get_id(line);
-                subpop_v[sid] = 1;
-            }
-        }
+        if (subpop_fn != NULL)
+            meta.get_samples().get_subpop_vector(subpop_fn, subpop_v);
 
         // prepare ibdfile object
         in = IbdFile(ibd_fn, &meta, max_rec_ram);
