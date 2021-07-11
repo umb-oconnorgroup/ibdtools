@@ -234,12 +234,12 @@ ibdtools_split_main(int argc, char *argv[])
         add("window_cM,W", value<float>(&window_cM)->default_value(2.0),
             "window to count SNPs (cM)");
         add("min_snp_in_window,S", value<size_t>(&min_snp_in_window)->default_value(10),
-            "window to count SNPs (cM)");
+            "min snp per windows for exclusion");
         add("min_cM", value<float>(&min_cM)->default_value(2.0),
-            "mininum length to keep after splitting (cM)");
+            "min length to keep after splitting (cM)");
         add("exclusion_range_fn",
             value<string>(&exclusion_range_fn)->default_value("(None)"),
-            "mininum length to keep after splitting (cM)");
+            "additional range to exclude in addition to low SNP density region");
         add("mem", value<float>(&mem)->default_value(10), "RAM to use");
         add("out_prefix,o", value<string>(&out_prefix)->required(),
             "output file prefix (encoded)");
