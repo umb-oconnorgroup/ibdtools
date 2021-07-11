@@ -169,7 +169,7 @@ ibdtools_coverage_main(int argc, char *argv[])
         auto add = desc.add_options();
         add("ibd_in,i", value<string>(&ibd_in_fn)->required(), "encoded ibd file");
         add("meta,m", value<string>(&meta_in_fn)->required(), "meta file");
-        add("subpop_samples,P", value<string>(&subpop_fn)->default_value(""),
+        add("subpop_samples,P", value<string>(&subpop_fn)->default_value("(None)"),
             "file contains a list subpopulation samples");
         add("mem", value<float>(&mem)->default_value(10.0), "RAM to use in Gb");
         add("window", value<float>(&window)->default_value(1.0), "window size in cM");
@@ -200,7 +200,7 @@ ibdtools_coverage_main(int argc, char *argv[])
     }
 
     const char *subpop_fn_char = NULL;
-    if (subpop_fn != "")
+    if (subpop_fn != "(None)")
         subpop_fn_char = subpop_fn.c_str();
 
     IbdCoverage cov(ibd_in_fn.c_str(), meta_in_fn.c_str(), window,
@@ -389,8 +389,9 @@ ibdtools_merge_main(int argc, char *argv[])
 int
 ibdtools_matrix_main(int argc, char *argv[])
 {
-    string ibd_in, meta_in, out_prefix;
-    float mem;
+    string ibd_in, meta_in, out_prefix, subpop_fn;
+    vector<string> matrices_in;
+    float mem, hist_win_cM;
     int use_hap_pair;
     float filt_lower_cm, filt_upper_cm;
     uint16_t filt_lower_cm10x, filt_upper_cm10x;
@@ -399,8 +400,16 @@ ibdtools_matrix_main(int argc, char *argv[])
     options_description desc{ "ibdtools matrix" };
     try {
         auto add = desc.add_options();
-        add("ibd_in,i", value<string>(&ibd_in)->required(), "input ibdfile (encoded)");
+        add("ibd_in,i", value<string>(&ibd_in), "input ibdfile (encoded)");
+        add("matrices_in", value<vector<string> >(&matrices_in)->multitoken(),
+            "matrices to be combined. When this is given, --meta_in can be the metafile "
+            "of any chromsome as it only uses sample information from it which is "
+            "shared among chromosmes");
         add("meta_in,m", value<string>(&meta_in)->required(), "input metafile");
+        add("hist_win_cM,W", value<float>(&hist_win_cM)->default_value(1),
+            "window size (cM) for histogram");
+        add("subpop_samples,P", value<string>(&subpop_fn)->default_value("(None)"),
+            "file contains a list subpopulation samples");
         add("out_prefix,o", value<string>(&out_prefix)->required(),
             "output file prefix");
         add("use_hap_pair,H", value<int>(&use_hap_pair)->default_value(0),
@@ -424,7 +433,13 @@ ibdtools_matrix_main(int argc, char *argv[])
 
         cerr << "ibdtools matrix options received: \n";
         cerr << "--ibd_in: " << ibd_in << '\n';
+        cerr << "--matrices_in: ";
+        for (auto s : matrices_in)
+            cerr << s << ' ';
+        cerr << '\n';
         cerr << "--meta_in: " << meta_in << '\n';
+        cerr << "--hist_win_cM: " << hist_win_cM << '\n';
+        cout << "--subpop_samples: " << subpop_fn << '\n';
         cerr << "--out_prefix: " << out_prefix << '\n';
         cerr << "--use_hap_pair: " << use_hap_pair << '\n';
         cerr << "--mem: " << mem << '\n';
@@ -448,9 +463,26 @@ ibdtools_matrix_main(int argc, char *argv[])
 
     // matrix: calculate total, filter, save and get histogram
     IbdMatrix mat;
-    ibdfile.open("r");
-    mat.calculate_total_from_ibdfile(ibdfile, use_hap_pair != 0);
-    ibdfile.close();
+
+    if (ibd_in != "") {
+        ibdfile.open("r");
+
+        assert(matrices_in.size() == 0
+               && "--ibd_in and --matrices_in are mutual exclusive");
+        mat.calculate_total_from_ibdfile(ibdfile, use_hap_pair != 0);
+
+        ibdfile.close();
+    } else {
+        assert(
+            matrices_in.size() > 1 && "--ibd_in and --matrices_in are mutual exclusive");
+        mat.read_matrix_file(matrices_in[0].c_str());
+
+        IbdMatrix mat2;
+        for (size_t i = 1; i < matrices_in.size(); i++) {
+            mat2.read_matrix_file(matrices_in[i].c_str());
+            mat.add_matrix(mat2);
+        }
+    }
 
     // filter
     filt_lower_cm10x = 10 * filt_lower_cm;
@@ -469,8 +501,12 @@ ibdtools_matrix_main(int argc, char *argv[])
 
     // save the histogram
     vector<size_t> hist;
-    uint16_t win_10th_cM = 1;
-    mat.get_histogram(hist, win_10th_cM);
+    const char *subpop_fn_char = NULL;
+    if (subpop_fn != "(None)")
+        subpop_fn_char = subpop_fn.c_str();
+
+    uint16_t win_10th_cM = round(hist_win_cM * 10);
+    mat.get_histogram(hist, win_10th_cM, &meta, subpop_fn_char, use_hap_pair != 0);
     size_t total_element = 0, total_nonzeros = 0;
     for (size_t i = 0; i < hist.size(); i++) {
         if (i != 0)
@@ -656,9 +692,8 @@ ibdtools_view_main(int argc, char *argv[])
 int
 main(int argc, char *argv[])
 {
-    vector<string> subcmds
-        = { "encode", "coverage", "split", "sort", "merge", "matrix", "decode" };
-    // "summary", "view"
+    vector<string> subcmds = { "encode", "snsdens", "coverage", "split", "sort", "merge",
+        "matrix", "decode", "view" };
 
     auto err_msg = [&]() {
         cerr << "Usage: ibdtools <subcommand> [options]. Avaiable subcommands: \n";
