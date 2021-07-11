@@ -215,12 +215,15 @@ ibdtools_coverage_main(int argc, char *argv[])
 int
 ibdtools_split_main(int argc, char *argv[])
 {
-    string meta_in_fn, ibd_in_fn, out_prefix;
+    string meta_in_fn, ibd_in_fn, out_prefix, exclusion_range_fn;
     vector<region_label_t> labels;
     float window_cM = 2.0;
     size_t min_snp_in_window = 100;
     float min_cM = 2.0;
     float mem = 10.0;
+    struct range_t {
+        uint32_t pid1, pid2;
+    };
 
     options_description desc{ "ibdtools split" };
     try {
@@ -233,6 +236,9 @@ ibdtools_split_main(int argc, char *argv[])
         add("min_snp_in_window,S", value<size_t>(&min_snp_in_window)->default_value(10),
             "window to count SNPs (cM)");
         add("min_cM", value<float>(&min_cM)->default_value(2.0),
+            "mininum length to keep after splitting (cM)");
+        add("exclusion_range_fn",
+            value<string>(&exclusion_range_fn)->default_value("(None)"),
             "mininum length to keep after splitting (cM)");
         add("mem", value<float>(&mem)->default_value(10), "RAM to use");
         add("out_prefix,o", value<string>(&out_prefix)->required(),
@@ -251,10 +257,13 @@ ibdtools_split_main(int argc, char *argv[])
 
         cerr << "ibdtools split options received: \n";
         cout << "--ibd_in: " << ibd_in_fn << '\n';
-        cout << "--out: " << out_prefix << '\n';
-        cout << "--meta: " << meta_in_fn << '\n';
+        cout << "--meta_in: " << meta_in_fn << '\n';
+        cout << "--window_cM: " << window_cM << '\n';
+        cerr << "--min_snp_in_window: " << min_snp_in_window << '\n';
         cout << "--min_cM: " << min_cM << '\n';
+        cerr << "exclusion_range_fn: " << exclusion_range_fn << '\n';
         cout << "--mem: " << mem << '\n';
+        cout << "--out_prefix: " << out_prefix << '\n';
 
     } catch (const error &ex) {
         cerr << ex.what() << '\n';
@@ -263,12 +272,34 @@ ibdtools_split_main(int argc, char *argv[])
     }
 
     {
+        // ranges by SNP density
         BGZF *fp = bgzf_open(meta_in_fn.c_str(), "r");
         MetaFile meta;
         meta.read_from_file(fp);
         bgzf_close(fp);
         labels = meta.get_positions().get_gap_vector(window_cM, min_snp_in_window);
 
+        // Add ranges to exclude to the labels vector.
+        if (exclusion_range_fn != "(None)") {
+            ifstream ifs(exclusion_range_fn);
+            uint32_t left, right;
+            uint32_t pid1, pid2;
+            string line;
+            StringViewSplitter spliter("\t");
+            while (getline(ifs, line, '\n')) {
+                cerr << "line" << line << '\n';
+                spliter.split(line, 2);
+                spliter.get(0, left);
+                spliter.get(1, right);
+                auto &pos = meta.get_positions();
+                pid1 = pos.get_upper_bound_id(left) - 1;
+                pid2 = pos.get_upper_bound_id(right);
+
+                add_exclusion_range(labels, pid1, pid2);
+            }
+        }
+
+        // Output to file
         ofstream ofs(out_prefix + "_label.txt");
         ofs << "pid\tpos_bp\tlabel\n";
         for (auto label : labels)
