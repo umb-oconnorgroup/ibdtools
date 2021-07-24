@@ -217,6 +217,7 @@ ibdtools_split_main(int argc, char *argv[])
 {
     string meta_in_fn, ibd_in_fn, out_prefix, exclusion_range_fn;
     vector<region_label_t> labels;
+    int out_range_label_only = 0;
     float window_cM = 2.0;
     size_t min_snp_in_window = 100;
     float min_cM = 2.0;
@@ -243,6 +244,9 @@ ibdtools_split_main(int argc, char *argv[])
         add("mem", value<float>(&mem)->default_value(10), "RAM to use");
         add("out_prefix,o", value<string>(&out_prefix)->required(),
             "output file prefix (encoded)");
+        add("out_range_label_only,R",
+            value<int>(&out_range_label_only)->default_value(0),
+            "if nonzero, only output the range_labels for splitting but not run split");
         add("help,h", "print help information");
 
         variables_map vm;
@@ -261,9 +265,10 @@ ibdtools_split_main(int argc, char *argv[])
         cerr << "--window_cM: " << window_cM << '\n';
         cerr << "--min_snp_in_window: " << min_snp_in_window << '\n';
         cerr << "--min_cM: " << min_cM << '\n';
-        cerr << "exclusion_range_fn: " << exclusion_range_fn << '\n';
+        cerr << "--exclusion_range_fn: " << exclusion_range_fn << '\n';
         cerr << "--mem: " << mem << '\n';
         cerr << "--out_prefix: " << out_prefix << '\n';
+        cerr << "--out_range_label_only: " << out_range_label_only << '\n';
 
     } catch (const error &ex) {
         cerr << ex.what() << '\n';
@@ -301,16 +306,19 @@ ibdtools_split_main(int argc, char *argv[])
 
         // Output to file
         ofstream ofs(out_prefix + "_label.txt");
-        ofs << "pid\tpos_bp\tlabel\n";
+        ofs << "pid\tpos_bp\tcM\tlabel\n";
         for (auto label : labels)
             ofs << label.pid_s << '\t' << meta.get_positions().get_bp(label.pid_s)
-                << '\t' << label.label << '\n';
+                << '\t' << meta.get_positions().get_cm(label.pid_s) << '\t'
+                << label.label << '\n';
     }
 
-    IbdSplitter splitter(ibd_in_fn.c_str(), out_prefix.c_str(), meta_in_fn.c_str(),
-        labels, 1, min_cM, mem / 10 * 0.33 * 1024 * 1024 * 1024,
-        mem / 10 * 0.66 * 1024 * 1024 * 1024);
-    splitter.split();
+    if (out_range_label_only == 0) {
+        IbdSplitter splitter(ibd_in_fn.c_str(), out_prefix.c_str(), meta_in_fn.c_str(),
+            labels, 1, min_cM, mem / 10 * 0.33 * 1024 * 1024 * 1024,
+            mem / 10 * 0.66 * 1024 * 1024 * 1024);
+        splitter.split();
+    }
 
     return 0;
 }
