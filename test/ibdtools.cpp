@@ -5,6 +5,7 @@
 #include "../include/ibdmerger.hpp"
 #include "../include/ibdsorter.hpp"
 #include "../include/ibdspliter.hpp"
+#include "../include/ibdstat.hpp"
 #include "../include/metafile.hpp"
 #include "htslib/bgzf.h"
 #include <argp.h>
@@ -741,13 +742,73 @@ ibdtools_view_main(int argc, char *argv[])
 
     return 0;
 }
+
+////////////////////////////////////////////////////////////
+int
+ibdtools_stat_main(int argc, char *argv[])
+{
+    string ibd_in, meta_in, stat_out;
+    float genome_sz_cM, mem;
+    options_description desc{ "ibdtools stat" };
+
+    try {
+        auto add = desc.add_options();
+        add("ibd_in,i", value<string>(&ibd_in)->required(),
+            "input IBD file (encoded, unsorted)");
+        add("meta_in,m", value<string>(&meta_in)->required(),
+            "output ibd file (encoded");
+        add("genome_size,G", value<float>(&genome_sz_cM)->default_value(3545.83),
+            "genome size in cM");
+        add("mem,M", value<float>(&mem)->default_value(10.0), "RAM to use (Gb)");
+        add("help,h", "print help message");
+        add("out, o", value<string>(&stat_out)->required(), "output file");
+
+        variables_map vm;
+        store(parse_command_line(argc, argv, desc), vm);
+
+        if (vm.count("help")) {
+            cerr << desc << '\n';
+            exit(-2);
+        }
+        notify(vm);
+
+        assert(stat_out != "");
+
+        cerr << "ibdtools stat options received: \n";
+        cerr << "--ibd_in: " << ibd_in << '\n';
+        cerr << "--meta_in: " << meta_in << '\n';
+        cerr << "--genome_sz_cM: " << genome_sz_cM << '\n';
+        cerr << "--mem: " << mem << '\n';
+        cerr << "--out: " << stat_out << '\n';
+
+    } catch (const error &ex) {
+        cerr << ex.what() << '\n';
+        cerr << desc << '\n';
+        exit(-1);
+    }
+
+    IbdStat stats(ibd_in.c_str(), meta_in.c_str(), genome_sz_cM,
+        mem * 1024 * 1024 * 1024 / sizeof(ibd_rec1_t));
+
+    auto counters = stats.get_stat();
+
+    ofstream ofs(stat_out);
+    ofs << "# Count of Ibd segments with a length in each window \n";
+    ofs << "cM\tCount\n";
+    for (size_t i = 0; i < counters.size(); i++) {
+        ofs << i << '\t' << counters[i] << '\n';
+    }
+
+    return 0;
+}
+
 ////////////////////////////////////////////////////////////
 
 int
 main(int argc, char *argv[])
 {
     vector<string> subcmds = { "encode", "snsdens", "coverage", "split", "sort", "merge",
-        "matrix", "decode", "view" };
+        "matrix", "decode", "view", "stat" };
 
     auto err_msg = [&]() {
         cerr << "Usage: ibdtools <subcommand> [options]. Avaiable subcommands: \n";
@@ -786,6 +847,8 @@ main(int argc, char *argv[])
             return ibdtools_decode_main(argc - 1, argv + 1);
         } else if (subcmd == "view") {
             return ibdtools_view_main(argc - 1, argv + 1);
+        } else if (subcmd == "stat") {
+            return ibdtools_stat_main(argc - 1, argv + 1);
         } else {
             cerr << "Subcommand `" << subcmd << "` NOT Implemented!\n";
             exit(-1);
