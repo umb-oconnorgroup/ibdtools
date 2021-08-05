@@ -432,6 +432,7 @@ ibdtools_matrix_main(int argc, char *argv[])
     vector<string> matrices_in;
     float mem, hist_win_cM;
     int use_hap_pair;
+    float min_seg_cM;
     float filt_lower_cm, filt_upper_cm;
     uint16_t filt_lower_cm10x, filt_upper_cm10x;
     auto filt_max = numeric_limits<uint16_t>::max();
@@ -445,6 +446,8 @@ ibdtools_matrix_main(int argc, char *argv[])
             "of any chromsome as it only uses sample information from it which is "
             "shared among chromosmes");
         add("meta_in,m", value<string>(&meta_in)->required(), "input metafile");
+        add("min_seg_cM,T", value<float>(&min_seg_cM)->default_value(2),
+            "IBD segment not shorter than min_seg_cM will be summed up to total IBD");
         add("hist_win_cM,W", value<float>(&hist_win_cM)->default_value(1),
             "window size (cM) for histogram");
         add("subpop_samples,P", value<string>(&subpop_fn)->default_value("(None)"),
@@ -477,6 +480,7 @@ ibdtools_matrix_main(int argc, char *argv[])
             cerr << s << ' ';
         cerr << '\n';
         cerr << "--meta_in: " << meta_in << '\n';
+        cerr << "--min_seg_cM: " << min_seg_cM << '\n';
         cerr << "--hist_win_cM: " << hist_win_cM << '\n';
         cerr << "--subpop_samples: " << subpop_fn << '\n';
         cerr << "--out_prefix: " << out_prefix << '\n';
@@ -508,7 +512,7 @@ ibdtools_matrix_main(int argc, char *argv[])
 
         assert(matrices_in.size() == 0
                && "--ibd_in and --matrices_in are mutual exclusive");
-        mat.calculate_total_from_ibdfile(ibdfile, use_hap_pair != 0);
+        mat.calculate_total_from_ibdfile(ibdfile, use_hap_pair != 0, NULL, min_seg_cM);
 
         ibdfile.close();
     } else {

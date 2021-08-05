@@ -126,8 +126,8 @@ class IbdMatrix
     }
 
     void
-    calculate_total_from_ibdfile(
-        IbdFile &ibdfile, bool use_hap_pair = false, const char *subpop_fn = NULL)
+    calculate_total_from_ibdfile(IbdFile &ibdfile, bool use_hap_pair = false,
+        const char *subpop_fn = NULL, float min_cM = 2.0)
     {
         MetaFile *meta = ibdfile.get_meta();
         assert(meta != NULL && "calculate total need info from the meta file");
@@ -147,6 +147,7 @@ class IbdMatrix
         bool read_full;
         auto &in_vec = ibdfile.get_vec();
         uint32_t row, col, pid1, pid2;
+        float cM;
 
         if (is_hap_pair()) {
             do {
@@ -160,7 +161,10 @@ class IbdMatrix
                     col += rec.get_hid2();
                     pid1 = rec.get_pid1();
                     pid2 = rec.get_pid2();
-                    at(row, col) += lround((pos.get_cm(pid2) - pos.get_cm(pid1)) * 10);
+                    cM = pos.get_cm(pid2) - pos.get_cm(pid1);
+                    if (cM < min_cM)
+                        continue;
+                    at(row, col) += lround(cM * 10);
                 }
 
             } while (read_full);
@@ -175,7 +179,10 @@ class IbdMatrix
 
                     pid1 = rec.get_pid1();
                     pid2 = rec.get_pid2();
-                    at(row, col) += lround((pos.get_cm(pid2) - pos.get_cm(pid1)) * 10);
+                    cM = pos.get_cm(pid2) - pos.get_cm(pid1);
+                    if (cM < min_cM)
+                        continue;
+                    at(row, col) += lround(cM * 10);
                 }
             } while (read_full);
         }
