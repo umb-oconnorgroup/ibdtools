@@ -172,7 +172,7 @@ class IbdSorter
             auto &chunk = chunks.back();
 
             // open the file, write and close
-            chunk.open("wu");
+            chunk.open("w");
             in.write_to_file(chunk);
             chunk.close();
 
@@ -196,7 +196,7 @@ class IbdSorter
             fn += std::to_string(counter++);
             IbdFile new_chunk(fn.c_str(), NULL, 0);
 
-            new_chunk.open("wu");
+            new_chunk.open("w");
             // std::cout << " Merge to " << fn << '\n';
             merge_first_k_chunk(new_chunk, kways);
             new_chunk.close();
