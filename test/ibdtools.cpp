@@ -8,8 +8,10 @@
 #include "../include/ibdstat.hpp"
 #include "../include/metafile.hpp"
 #include "htslib/bgzf.h"
+#include <algorithm>
 #include <argp.h>
 #include <boost/program_options.hpp>
+#include <cctype>
 #include <cstdint>
 #include <fmt/core.h>
 #include <fstream>
@@ -283,23 +285,45 @@ ibdtools_split_main(int argc, char *argv[])
         MetaFile meta;
         meta.read_from_file(fp);
         bgzf_close(fp);
+
         labels = meta.get_positions().get_gap_vector(window_cM, min_snp_in_window);
 
         // Add ranges to exclude to the labels vector.
         if (exclusion_range_fn != "(None)") {
             ifstream ifs(exclusion_range_fn);
             uint32_t left, right;
+            double leftf, rightf;
             uint32_t pid1, pid2;
+            string type;
             string line;
             StringViewSplitter spliter("\t");
             while (getline(ifs, line, '\n')) {
-                cerr << "line" << line << '\n';
-                spliter.split(line, 2);
-                spliter.get(0, left);
-                spliter.get(1, right);
+                cerr << "line: " << line << '\n';
+                spliter.split(line, 3);
+                spliter.get(0, type);
+                std::transform(type.begin(), type.end(), type.begin(), ::toupper);
+
                 auto &pos = meta.get_positions();
-                pid1 = pos.get_upper_bound_id(left) - 1;
-                pid2 = pos.get_upper_bound_id(right);
+                auto &gmap = meta.get_genetic_map();
+
+                assert(type == "CM"
+                       || type == "BP" && "region list should be either cM or bp");
+
+                if (type == "CM") {
+                    spliter.get(1, leftf);
+                    spliter.get(2, rightf);
+                    uint32_t tmp = pos.get_upper_bound_id(gmap.get_bp(leftf));
+                    pid1 = tmp == 0 ? 0 : tmp - 1;
+                    pid2 = pos.get_upper_bound_id(gmap.get_bp(rightf));
+                } else if (type == "BP") {
+                    spliter.get(1, left);
+                    spliter.get(2, right);
+                    uint32_t tmp = pos.get_upper_bound_id(left);
+                    pid1 = tmp == 0 ? 0 : tmp - 1;
+                    pid2 = pos.get_upper_bound_id(right);
+                    std::cerr << "pid1: " << pid1 << " pid2: " << pid2 << '\n';
+                    std::cerr << " " << pos.get_bp(0) << " " << pos.get_cm(0) << '\n';
+                }
 
                 add_exclusion_range(labels, pid1, pid2);
             }
