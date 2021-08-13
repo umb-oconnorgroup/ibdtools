@@ -41,7 +41,7 @@ class MetaFile
         genotypes = Genotypes(nsam);
         chromosomes.add(chr_name, 0, 0);
         positions = Positions(chromosomes.get_id(chr_name));
-        GeneticMap gmap(-1, gmap_fn);
+        gmap = GeneticMap(-1, gmap_fn);
 
         // add names to the Samples object
         for (int32_t i = 0; i < nsam; i++)
