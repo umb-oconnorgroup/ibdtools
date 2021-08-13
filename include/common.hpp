@@ -2,6 +2,7 @@
 #define __common_hpp__
 
 #include <cstdint>
+#include <cstdlib>
 #include <htslib/bgzf.h>
 #include <htslib/hts.h>
 
@@ -778,6 +779,14 @@ class StringViewSplitter
             val = sv_vec[which];
             /*
             std::cout << "type: string_view\t";
+            */
+        } else if constexpr (std::is_same_v<T, double>) {
+            // Note important to set a default value, because from_chars will not
+            // update the val if the first=back (length=0)
+            auto sv = sv_vec[which];
+            val = std::strtod(sv.begin(), NULL);
+            /*
+            std::cout << "type: arithmetic\t";
             */
         } else if constexpr (std::is_arithmetic_v<T>) {
             // Note important to set a default value, because from_chars will not
