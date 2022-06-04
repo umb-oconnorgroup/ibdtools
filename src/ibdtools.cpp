@@ -94,8 +94,7 @@ ibdtools_encode_main(int argc, char *argv[])
     bgzf_index_build_init(fp);
 
     MetaFile meta;
-    meta.parse_files(vcf_in_fn.c_str(), map_in_fn.c_str(), true,
-                     chr_name.c_str());
+    meta.parse_files(vcf_in_fn.c_str(), map_in_fn.c_str(), true, chr_name.c_str());
     meta.write_to_file(fp);
     assert(0 == bgzf_index_dump(fp, meta_out_fn.c_str(), ".gzi"));
     bgzf_close(fp);
@@ -163,13 +162,12 @@ ibdtools_snpdens_main(int argc, char *argv[])
     ofstream ofs(snp_density_fn);
     auto counts = meta.get_positions().get_window_counts(window_cM);
     ofs << "# Chromosome: "
-        << meta.get_chromosomes().get_name(meta.get_positions().get_chrom_id())
-        << '\n';
+        << meta.get_chromosomes().get_name(meta.get_positions().get_chrom_id()) << '\n';
     ofs << "# Window size (cM) : " << window_cM << '\n';
     ofs << "# No. of windows: " << counts.size() << '\n';
     ofs << "cM\tCount\n";
     for (size_t i = 0; i < counts.size(); i++)
-      ofs << window_cM * i << '\t' << counts[i] << '\n';
+        ofs << window_cM * i << '\t' << counts[i] << '\n';
 
     return 0;
 }
@@ -218,10 +216,10 @@ ibdtools_coverage_main(int argc, char *argv[])
     // calc coverage
     const char *subpop_fn_char = NULL;
     if (subpop_fn != "(None)")
-     subpop_fn_char = subpop_fn.c_str();
+        subpop_fn_char = subpop_fn.c_str();
 
     IbdCoverage cov(ibd_in_fn.c_str(), meta_in_fn.c_str(), window,
-                    mem / 10 * 1024 * 1024 * 1024, subpop_fn_char);
+        mem / 10 * 1024 * 1024 * 1024, subpop_fn_char);
     cov.calculate_coverage();
     ofstream ofs(coverage_out_fn);
     cov.summary(ofs, 0);
@@ -301,8 +299,7 @@ ibdtools_split_main(int argc, char *argv[])
         meta.read_from_file(fp);
         bgzf_close(fp);
 
-        labels = meta.get_positions().get_gap_vector(window_cM,
-        min_snp_in_window);
+        labels = meta.get_positions().get_gap_vector(window_cM, min_snp_in_window);
 
         // Add ranges to exclude to the labels vector.
         if (exclusion_range_fn != "(None)") {
@@ -317,13 +314,13 @@ ibdtools_split_main(int argc, char *argv[])
                 cerr << "line: " << line << '\n';
                 spliter.split(line, 3);
                 spliter.get(0, type);
-                std::transform(type.begin(), type.end(), type.begin(),
-                ::toupper);
+                std::transform(type.begin(), type.end(), type.begin(), ::toupper);
 
                 auto &pos = meta.get_positions();
                 auto &gmap = meta.get_genetic_map();
 
-                assert((type == "CM" || type == "BP") && "region list should be either cM or bp");
+                assert((type == "CM" || type == "BP")
+                       && "region list should be either cM or bp");
 
                 if (type == "CM") {
                     spliter.get(1, leftf);
@@ -338,8 +335,7 @@ ibdtools_split_main(int argc, char *argv[])
                     pid1 = tmp == 0 ? 0 : tmp - 1;
                     pid2 = pos.get_upper_bound_id(right);
                     std::cerr << "pid1: " << pid1 << " pid2: " << pid2 << '\n';
-                    std::cerr << " " << pos.get_bp(0) << " " << pos.get_cm(0)
-                    << '\n';
+                    std::cerr << " " << pos.get_bp(0) << " " << pos.get_cm(0) << '\n';
                 }
 
                 add_exclusion_range(labels, pid1, pid2);
@@ -350,15 +346,13 @@ ibdtools_split_main(int argc, char *argv[])
         ofstream ofs(out_prefix + "_label.txt");
         ofs << "pid\tpos_bp\tcM\tlabel\n";
         for (auto label : labels)
-            ofs << label.pid_s << '\t' <<
-            meta.get_positions().get_bp(label.pid_s)
+            ofs << label.pid_s << '\t' << meta.get_positions().get_bp(label.pid_s)
                 << '\t' << meta.get_positions().get_cm(label.pid_s) << '\t'
                 << label.label << '\n';
     }
 
     if (out_range_label_only == 0) {
-        IbdSplitter splitter(ibd_in_fn.c_str(), out_prefix.c_str(),
-        meta_in_fn.c_str(),
+        IbdSplitter splitter(ibd_in_fn.c_str(), out_prefix.c_str(), meta_in_fn.c_str(),
             labels, 1, min_cM, mem / 10 * 0.33 * 1024 * 1024 * 1024,
             mem / 10 * 0.66 * 1024 * 1024 * 1024);
         splitter.split();
@@ -403,9 +397,8 @@ ibdtools_sort_main(int argc, char *argv[])
         cerr << ex.what() << '\n';
         exit(-1);
     }
-    IbdSorter sorter(ibd_in.c_str(), ibd_out.c_str(), "w",
-                     (ibd_out + "_tmp_").c_str(), mem / 10 * 1024 * 1024 *
-                     1024);
+    IbdSorter sorter(ibd_in.c_str(), ibd_out.c_str(), "w", (ibd_out + "_tmp_").c_str(),
+        mem / 10 * 1024 * 1024 * 1024);
     sorter.sort_into_chunks();
     sorter.merge_chunks(k_way);
 
@@ -561,12 +554,12 @@ ibdtools_matrix_main(int argc, char *argv[])
 
         assert(matrices_in.size() == 0
                && "--ibd_in and --matrices_in are mutual exclusive");
-        mat.calculate_total_from_ibdfile(ibdfile, use_hap_pair != 0, NULL,
-        min_seg_cM);
+        mat.calculate_total_from_ibdfile(ibdfile, use_hap_pair != 0, NULL, min_seg_cM);
 
         ibdfile.close();
     } else {
-        assert( (matrices_in.size() > 1) && "--ibd_in and --matrices_in are mutual exclusive");
+        assert((matrices_in.size() > 1)
+               && "--ibd_in and --matrices_in are mutual exclusive");
         mat.read_matrix_file(matrices_in[0].c_str());
         cerr << "read matrix: " << matrices_in[0] << '\n';
 
@@ -601,9 +594,9 @@ ibdtools_matrix_main(int argc, char *argv[])
         subpop_fn_char = subpop_fn.c_str();
 
     uint16_t win_10th_cM = round(hist_win_cM * 10);
-    mat.get_histogram(hist, win_10th_cM, &meta, subpop_fn_char, use_hap_pair !=
-    0); size_t total_element = 0, total_nonzeros = 0; for (size_t i = 0; i <
-    hist.size(); i++) {
+    mat.get_histogram(hist, win_10th_cM, &meta, subpop_fn_char, use_hap_pair != 0);
+    size_t total_element = 0, total_nonzeros = 0;
+    for (size_t i = 0; i < hist.size(); i++) {
         if (i != 0)
             total_nonzeros += hist[i];
         total_element += hist[i];
@@ -675,10 +668,10 @@ ibdtools_decode_main(int argc, char *argv[])
         subpop_fn_char = subpop_fn.c_str();
 
     // decode ibdfile
-    IbdFile ibdfile(ibd_in.c_str(), &meta, mem / 10.0 * 0.33 * 1024 * 1024 *
-    1024); ibdfile.open("r"); ibdfile.to_raw_ibd(
-        ibd_out.c_str(), mem / 10.0 * 0.66 * 1024 * 1024 * 1024,
-        subpop_fn_char);
+    IbdFile ibdfile(ibd_in.c_str(), &meta, mem / 10.0 * 0.33 * 1024 * 1024 * 1024);
+    ibdfile.open("r");
+    ibdfile.to_raw_ibd(
+        ibd_out.c_str(), mem / 10.0 * 0.66 * 1024 * 1024 * 1024, subpop_fn_char);
     ibdfile.close();
 
     return 0;
@@ -758,10 +751,8 @@ ibdtools_view_main(int argc, char *argv[])
         std::swap(sample1, sample2);
     }
 
-    std::cerr << "sid1: " << sid1 << " sample1: " <<
-    meta.get_samples().get_name(sid1)
-              << " sid2: " << sid2 << " sample2: " <<
-              meta.get_samples().get_name(sid2)
+    std::cerr << "sid1: " << sid1 << " sample1: " << meta.get_samples().get_name(sid1)
+              << " sid2: " << sid2 << " sample2: " << meta.get_samples().get_name(sid2)
               << '\n';
     do {
         read_full = ibdfile.read_from_file();
@@ -775,8 +766,7 @@ ibdtools_view_main(int argc, char *argv[])
                 uint32_t end = pos.get_bp(x.get_pid2());
                 string &s1 = samples.get_name(x.sid1);
                 string &s2 = samples.get_name(x.sid2);
-                fmt::print("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", s1,
-                x.get_hid1(), s2,
+                fmt::print("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", s1, x.get_hid1(), s2,
                     x.get_hid2(), chrname, start, end, cm2 - cm1);
             }
         }
@@ -846,7 +836,7 @@ ibdtools_stat_main(int argc, char *argv[])
 int
 main(int argc, char *argv[])
 {
-    vector<string> subcmds = { "encode", "snsdens", "coverage", "split", "sort", "merge",
+    vector<string> subcmds = { "encode", "snpdens", "coverage", "split", "sort", "merge",
         "matrix", "decode", "view", "stat" };
     auto err_msg = [&]() {
         cerr << "Usage: ibdtools <subcmd> [options]. Available subcmd: \n";
