@@ -3,6 +3,7 @@
 
 #include "common.hpp"
 #include <algorithm>
+#include <math.h>
 
 // Positions for a given chromosome
 class Positions
@@ -102,10 +103,10 @@ class Positions
 
         std::vector<region_label_t> label_vec;
 
+        size_t prev_label;
         for (uint32_t i = 0; i < count_per_2cm.size(); ++i) {
 
             uint32_t label = (count_per_2cm[i] >= min_snp_per_window);
-            size_t prev_label;
             if (i == 0) {
                 // first label and start
                 label_vec.push_back({ 0, label });
