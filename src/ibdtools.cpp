@@ -50,7 +50,9 @@ ibdtools_encode_main(int argc, char *argv[])
 
         add("i,ibd_in", "raw txt ibd file", value<string>(ibd_in_fn));
         add("v,vcf_in", "VCF file", value<string>(vcf_in_fn));
-        add("g,gmap_in", "recombination map file", value<string>(map_in_fn));
+        add("g,gmap_in",
+            "recombination map (format: plink .map; separator: single whitespace",
+            value<string>(map_in_fn));
         add("c,chr_name", "chromosome name or id", value<string>(chr_name));
         add("o,ibd_out", "output ibd(encoded)", value<string>(ibd_out_fn));
         add("m,meta_out", "output metafile", value<string>(meta_out_fn));
