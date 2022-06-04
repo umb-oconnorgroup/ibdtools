@@ -14,11 +14,11 @@
 #include <random>
 #include <stdio.h>
 
-const char *map_fn = "../data/example.map";
-const char *vcf_fn = "../data/example.bcf.gz";
-const char *haps_fn = "../data/example_haplotypes.txt.gz";
-const char *ibd_txt_fn = "../data/example.ibd.gz";
-const char *browning_merged = "../data/merged_browning.ibd.gz";
+const char *map_fn = "data/example.map";
+const char *vcf_fn = "data/example.bcf.gz";
+const char *haps_fn = "data/example_haplotypes.txt.gz";
+const char *ibd_txt_fn = "data/example.ibd.gz";
+const char *browning_merged = "data/merged_browning.ibd.gz";
 const char *temp_file1 = "tmp1.gz";
 const char *temp_file2 = "tmp2.gz";
 const char *temp_file3 = "tmp3.gz";
