@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <fmt/core.h>
 #include <fstream>
+#include <htslib/kstring.h>
 #include <iostream>
 #include <istream>
 #include <iterator>
@@ -31,11 +32,11 @@ typedef struct {
 } bgzidx1_t;
 
 // from htslib bgzf.c
-struct bgzidx_t {
-    int noffs, moffs;     // the size of the index, n:used, m:allocated
-    bgzidx1_t *offs;      // offsets
-    uint64_t ublock_addr; // offset of the current block (uncompressed data)
-};
+// struct bgzidx_t {
+//     int noffs, moffs;     // the size of the index, n:used, m:allocated
+//     bgzidx1_t *offs;      // offsets
+//     uint64_t ublock_addr; // offset of the current block (uncompressed data)
+// };
 
 struct region_label_t {
     uint32_t pid_s : 24; // region start position id
@@ -51,7 +52,7 @@ inline void
 add_exclusion_range(
     std::vector<region_label_t> &label_v, uint32_t pid_left, uint32_t pid_right)
 {
-    assert(label_v.size() > 0 && label_v[0].pid_s <= pid_left);
+    assert((label_v.size() > 0) && (label_v[0].pid_s <= pid_left));
     assert(pid_left < pid_right);
 
     using namespace std;
