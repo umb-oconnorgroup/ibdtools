@@ -41,15 +41,31 @@ ibdtools_encode_main(int argc, char *argv[])
     float mem = 10.0;
 
     // parse cmd options
-    Options options(
-        "ibdtools encode", "encode genotype/genetic map information into binary");
-    options.set_width(80);
+
+    Options options("ibdtools encode",
+        "`ibdtools encode` encodes the ibd file from IBD caller, the vcf file (phased, "
+        "gimputed and biallelic) and the genetic map (plink format) information into "
+        "binary. NOTE: Each set of these files should contain information for a single "
+        "chromosome. Files should be split if they contain more than one chromosomes. "
+        "For vcf file, only the SNP positions and GT field are used. SNP positions by "
+        "base-pair should be sorted numerically and unique. SNP are indexed from 0 and "
+        "the indices are mapped to position in bp and cM using the plink map. For IBD, "
+        "6 columns are encoded, sample1, hap1, sample2, hap2, start_position_id and "
+        "end_position_id. Note the start/end poistion are encoded as SNP indices "
+        "instead of bp positions to save memory ; additional trick like struct packing "
+        "is used to save extra memory. The encoded ibd and meta files (as well as the "
+        "*.gzi index files ) are used as input for other subcommands. The encoded IBD "
+        "can be decoded into text format via `ibdtools decode` subcommand. Ex:\n\n  "
+        "ibdtools encode -i 1.ibd.gz -v 1.vcf.gz -g 1.map -c 1 -o 1.eibd -m 1.meta\n");
+    // options.set_width(80);
 
     try {
         auto add = options.add_options();
 
-        add("i,ibd_in", "raw txt ibd file", value<string>(ibd_in_fn));
-        add("v,vcf_in", "VCF file", value<string>(vcf_in_fn));
+        add("i,ibd_in", "raw txt ibd file (plain text or gzip compressed)",
+            value<string>(ibd_in_fn));
+        add("v,vcf_in", "VCF file (formats that can bed read by bcftools)",
+            value<string>(vcf_in_fn));
         add("g,gmap_in",
             "recombination map (format: plink .map; separator: single whitespace",
             value<string>(map_in_fn));
@@ -115,7 +131,9 @@ ibdtools_snpdens_main(int argc, char *argv[])
     float window_cM;
 
     // parse argument
-    Options options("ibdtools snpdens", "calculate number snp in given window size");
+    Options options("ibdtools snpdens",
+        "`ibdtools snpdens` calculates the number of snps in each window which can be."
+        "This step does not need the enocded ibd file.");
     options.set_width(80);
 
     try {
@@ -178,7 +196,11 @@ ibdtools_coverage_main(int argc, char *argv[])
     float mem = 10.0;   // 10gb
     float window = 1.0; // 1cM
 
-    Options options("ibdtools coverage", "Caculate Snp density using encoded meta file");
+    Options options("ibdtools coverage",
+        "`ibdtools coverage` caculates the numbers of IBD segments overlapping "
+        "specified windows. When `-P` is used, the calculation with will be performed "
+        "on the subset of IBD that are shared between a pair of samples from the "
+        "specified list of samples.");
     try {
         auto add = options.add_options();
         add("i,ibd_in", "encoded ibd file", value<string>(ibd_in_fn));
@@ -240,8 +262,16 @@ ibdtools_split_main(int argc, char *argv[])
         uint32_t pid1, pid2;
     };
 
-    Options options("ibdtools split", "split and remove IBD within specified "
-                                      "region or regions with low snp density");
+    Options options("ibdtools split",
+        "`ibdtools split` splits and removes IBD within specified "
+        "specified regions or calculated regions with low snp density. `-W`, `-S` and "
+        "`-C` options can be used to specified how low-SNP-density regions will be "
+        "calculated. `-E` can be used to exclude additional regions, such as regions "
+        "under strong selection. NOTE: For splitting IBD segment, all segments "
+        "overapping with the boundaries of target regions are first cut into parts, "
+        "those within the target regions and those outside the target regions. The "
+        "parts within of the target regions are removed; the parts outside will be "
+        "keeped if it is long enough (`C` option). ");
     try {
         auto add = options.add_options();
         add("i,ibd_in", "input ibd (encoded)", value<string>(ibd_in_fn));
@@ -367,7 +397,10 @@ ibdtools_sort_main(int argc, char *argv[])
     float mem;
     size_t k_way;
 
-    Options options{ "ibdtools sort" };
+    Options options("ibdtools sort",
+        "`ibdtools sort` sorts the encoded IBD files according IBD indcies of "
+        "sample1, hap1, sample2 and hap2, start. The sorted, encoded IBD files are used "
+        "in the following sub commands (ibdtools merge, and ibdtools view)");
 
     try {
         auto add = options.add_options();
@@ -414,8 +447,12 @@ ibdtools_merge_main(int argc, char *argv[])
     float max_cm;
 
     Options options("ibdtools merge",
-        "merge IBD segments if they close enough and only sperated "
-        "by a few discordant sites");
+        "`ibdtools merge` merges IBD segments if they close enough (by comparing IBD "
+        "coordinates) and only separated by a few discordant sites (by checking the "
+        "phased genotypes).  It can be used to reduce breaks in detected IBD due to "
+        "phase errors and genotype errors. The subcommand is to a reimplementation of "
+        "the Dr. Browning's tool (merge-ibd-segments.17Jan20.102.jar) for better memory "
+        "control and possibly better performance.");
     try {
         auto add = options.add_options();
         add("i,ibd_in", "input IBD file (from ibdtools sort)", value<string>(ibd_in));
@@ -434,6 +471,7 @@ ibdtools_merge_main(int argc, char *argv[])
         add("h,help", "print help message");
 
         auto result = options.parse(argc, argv);
+
         check_required_option(options, result, "ibd_in");
         check_required_option(options, result, "meta_in");
         check_required_option(options, result, "ibd_out");
@@ -473,7 +511,16 @@ ibdtools_matrix_main(int argc, char *argv[])
     uint16_t filt_lower_cm10x, filt_upper_cm10x;
     auto filt_max = numeric_limits<uint16_t>::max();
 
-    Options options{ "ibdtools matrix" };
+    Options options("ibdtools matrix",
+        "`ibdtools matrix` aggregates IBD segments into sample-pair total IBD matrix. "
+        "There are two modes: i) calculate chromosome-wide sample pair total IBD where "
+        "input is the encoded ibd file for the corresponding chromosome (options `-i`); "
+        "ii) calculate genome-wide sample pair total IBD where inputs are a "
+        "comma-separated list of matrix files generated by running `ibdtools matrix` "
+        "mode 1 for each chromosome (option `-x`). Additional, this subcommand allows "
+        "three levels of filtering: i) filtering IBD by sample population; ii) "
+        "filtering at IBD segment level (option `-T`) and iii) filtering at total IBD "
+        "level (options `-L` abd `-U`. ");
     try {
         auto add = options.add_options();
         add("i,ibd_in", "input ibdfile (encoded)", value<string>(ibd_in));
@@ -506,10 +553,15 @@ ibdtools_matrix_main(int argc, char *argv[])
             value<float>(filt_upper_cm)->default_value(to_string(filt_max / 10.0)));
 
         auto result = options.parse(argc, argv);
-        check_required_option(options, result, "ibd_in");
-        check_required_option(options, result, "matrices_in");
         check_required_option(options, result, "meta_in");
         check_required_option(options, result, "out_prefix");
+
+        if (result.count("ibd_in") < 1 && result.count("matrices_in") < 1) {
+            cerr << options.help({ "" }) << '\n';
+            cerr << "At least one of --ibd_in and --matrices_in should be specified!"
+                 << '\n';
+            exit(-1);
+        }
 
         if (result.count("help")) {
             cerr << options.help({ "" }) << '\n';
@@ -618,7 +670,9 @@ ibdtools_decode_main(int argc, char *argv[])
     string ibd_in, meta_in, ibd_out, subpop_fn;
     float mem = 10.0;
 
-    Options options("ibdtools decode", "decode binary ibd to text format");
+    Options options("ibdtools decode",
+        "`ibdtools decode` decode binary ibd to compressed text "
+        "format. It also allowed filtering IBD by samples");
 
     try {
         auto add = options.add_options();
@@ -684,7 +738,10 @@ ibdtools_view_main(int argc, char *argv[])
     uint32_t sid1, sid2;
     string sample1, sample2;
     float mem;
-    Options options("ibdtools view", "view ibd by sample names or ids");
+    Options options("ibdtools view",
+        "view ibd segments shared by a pair of sample names or a pair "
+        "ids. NOTE, the order of the sample names and ids are "
+        "unimportant as they will bed sorted internally by ibdtools");
 
     try {
         auto add = options.add_options();
@@ -782,7 +839,10 @@ ibdtools_stat_main(int argc, char *argv[])
 
     string ibd_in, meta_in, stat_out;
     float genome_sz_cM, mem;
-    Options options("ibdtools stat", "TODO");
+    Options options("ibdtools stat",
+        "`ibdtools stat` calculate the distribution of IBD length by "
+        "counting IBD segments in all length bins. The ith bin "
+        "correpond to IBD with length in a range of [i, i+1) cM ");
 
     try {
         auto add = options.add_options();
