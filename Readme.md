@@ -25,8 +25,33 @@ segments information by:
 - implementing some commonly-used algorithms in c/c++
 
 Currently, the functionalities and algorithms are very basic and probably not the
-most efficient, but has been to real research projects. As projects progress,
+most efficient, but has been used in real research projects. As projects progress,
 we will add more functions into this program.
+
+- `ibdtools encode`: encode the IBD file, VCF file and plink map file into
+  binary format for better/quicker IO
+- `ibdtools split`: remove IBD segments overlapping with given regions or
+  calculated regions with low SNP density. This can be useful for removing false
+  positive IBD segments in regions of low SNP density, or correcting
+  selection-induced bias.
+- `ibdtools sort`: sort large IBD files by implementing an external sorting
+  algorithm. It must be run before calling `ibdtools merge`.
+- `ibdtools merge`: flatten haplotype-pair IBD segments into individual-pair
+  IBD segments by merging all IBD segments shared by a pair of individuals when
+  they overlap or are separated by a short gap with only a few discordant
+  sites. This sub-command reimplements the algorithm in Dr. Browning's
+  `merge-ibd-segments` tool for stability and consistency purposes.
+- `ibdtools matrix`: allow aggregating IBD segments into chromosome-wide and
+  genome-wide total IBD and output total IBD matrix for downstream analysis.
+  During the aggregation process, IBD can be filtered at different levels
+  including the subpopulation, IBD segment length, and total IBD length.
+- `ibdtools snpdens`: calculate SNP density across chromosome.
+- `ibdtools coverage`: calculate IBD coverage across chromosome.
+- `ibdtools view`: search and print IBD segments belonging to a specified pair of
+  individuals.
+- `ibdtools decode`: convert the processed, encoded IBD back to text format for
+  readability and downstream analysis.
+- `ibdtools stat`: currently, only calculate the IBD length distribution.
 
 # Clone the repo and the submodules
 ```sh
