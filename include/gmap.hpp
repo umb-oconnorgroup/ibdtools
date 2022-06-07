@@ -32,6 +32,11 @@ class GeneticMap
         long double cm_pos;
         size_t line_counter = 0;
         while (std::getline(ifs, line, '\n')) {
+            if (line_counter < 10) {
+                assert((line.npos == line.find_first_of('\t'))
+                       && "Error in parsing plink map. Found tab but should use space "
+                          "as column delimiter");
+            }
             std::istringstream iss(line);
             std::getline(iss, field, ' ');
             std::getline(iss, field, ' ');
@@ -40,6 +45,7 @@ class GeneticMap
             std::getline(iss, field, ' ');
             bp_pos = std::stoul(field);
             add_position(bp_pos, cm_pos);
+            line_counter += 1;
         }
         add_final_slope();
     }
@@ -52,7 +58,8 @@ class GeneticMap
         id -= 1; // move to map point before the position
         auto slope = slope_vec[id];
 
-        // if (llround((cm - cm_pos_vec[id]) / slope + bp_pos_vec[id]) > bp_pos_vec[id + 1]
+        // if (llround((cm - cm_pos_vec[id]) / slope + bp_pos_vec[id]) > bp_pos_vec[id +
+        // 1]
         //     && id < bp_pos_vec.size() - 2) {
         //     print_range_info(id);
         //     std::cout << "bp: "
