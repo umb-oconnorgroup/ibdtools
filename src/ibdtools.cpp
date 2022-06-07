@@ -56,7 +56,8 @@ ibdtools_encode_main(int argc, char *argv[])
         "is used to save extra memory. The encoded ibd and meta files (as well as the "
         "*.gzi index files ) are used as input for other subcommands. The encoded IBD "
         "can be decoded into text format via `ibdtools decode` subcommand. Ex:\n\n  "
-        "ibdtools encode -i 1.ibd.gz -v 1.vcf.gz -g 1.map -c 1 -o 1.eibd -m 1.meta\n");
+        "ibdtools encode -i 1.ibd.gz -v 1.vcf.gz -g 1.map -c 1 -o 1.eibd -m 1.meta -M "
+        "1\n");
     // options.set_width(80);
 
     try {
@@ -76,17 +77,16 @@ ibdtools_encode_main(int argc, char *argv[])
         add("h,help", "print help information");
 
         auto result = options.parse(argc, argv);
+        if (result.count("help")) {
+            cerr << options.help({ "" }) << '\n';
+            exit(-1);
+        }
         check_required_option(options, result, "ibd_in");
         check_required_option(options, result, "vcf_in");
         check_required_option(options, result, "gmap_in");
         check_required_option(options, result, "chr_name");
         check_required_option(options, result, "ibd_out");
         check_required_option(options, result, "meta_out");
-
-        if (result.count("help")) {
-            cerr << options.help({ "" }) << '\n';
-            exit(-1);
-        }
 
         cerr << "ibdtools encode options received: \n";
         cerr << "--ibd_in:   " << ibd_in_fn << '\n';
@@ -133,8 +133,9 @@ ibdtools_snpdens_main(int argc, char *argv[])
     // parse argument
     Options options("ibdtools snpdens",
         "`ibdtools snpdens` calculates the number of snps in each window which can be."
-        "This step does not need the enocded ibd file.");
-    options.set_width(80);
+        "This step does not need the enocded ibd file. Ex:\n\n  ibdtools snpdens -m "
+        "1.meta -o 1_snpdens.txt\n");
+    // options.set_width(80);
 
     try {
         auto add = options.add_options();
@@ -147,13 +148,12 @@ ibdtools_snpdens_main(int argc, char *argv[])
         add("h,help", "print help information");
 
         auto result = options.parse(argc, argv);
-        check_required_option(options, result, "meta_in");
-        check_required_option(options, result, "snp_density_out");
-
         if (result.count("help")) {
             cerr << options.help({ "" }) << '\n';
             exit(-1);
         }
+        check_required_option(options, result, "meta_in");
+        check_required_option(options, result, "snp_density_out");
 
         cerr << "ibdtools snpdens options received: \n";
         cerr << "--meta_in:         " << meta_in_fn << '\n';
@@ -200,7 +200,8 @@ ibdtools_coverage_main(int argc, char *argv[])
         "`ibdtools coverage` caculates the numbers of IBD segments overlapping "
         "specified windows. When `-P` is used, the calculation with will be performed "
         "on the subset of IBD that are shared between a pair of samples from the "
-        "specified list of samples.");
+        "specified list of samples. Ex:\n\n  ibdtools coverage -i 1.mibd -m 1.meta -M 1 "
+        "-o 1_cov.txt\n");
     try {
         auto add = options.add_options();
         add("i,ibd_in", "encoded ibd file", value<string>(ibd_in_fn));
@@ -213,14 +214,13 @@ ibdtools_coverage_main(int argc, char *argv[])
         add("h, help", "help information");
 
         auto result = options.parse(argc, argv);
-        check_required_option(options, result, "ibd_in");
-        check_required_option(options, result, "meta_in");
-        check_required_option(options, result, "out");
-
         if (result.count("help")) {
             cerr << options.help({ "" }) << '\n';
             exit(1);
         }
+        check_required_option(options, result, "ibd_in");
+        check_required_option(options, result, "meta_in");
+        check_required_option(options, result, "out");
 
         cerr << "ibdtools coverage options received: \n";
         cerr << "--ibd_in:         " << ibd_in_fn << '\n';
@@ -271,7 +271,8 @@ ibdtools_split_main(int argc, char *argv[])
         "overapping with the boundaries of target regions are first cut into parts, "
         "those within the target regions and those outside the target regions. The "
         "parts within of the target regions are removed; the parts outside will be "
-        "keeped if it is long enough (`C` option). ");
+        "keeped if it is long enough (`C` option). Ex:\n\n   ibdtools split -i 1.eibd "
+        "-m 1.meta -W 2 -S 10 -o 1.split -M 1\n");
     try {
         auto add = options.add_options();
         add("i,ibd_in", "input ibd (encoded)", value<string>(ibd_in_fn));
@@ -287,7 +288,10 @@ ibdtools_split_main(int argc, char *argv[])
             value<string>(exclusion_range_fn)->default_value("(None)"));
         add("M,mem", "RAM to use", value<float>(mem)->default_value("10"));
 
-        add("o,out_prefix", "output file prefix (encoded)", value<string>(out_prefix));
+        add("o,out_prefix",
+            "output file prefix (encoded), `[out_prefix]1` file contains remaining IBD; "
+            "`[out_prefix]0` file contains IBD removed",
+            value<string>(out_prefix));
         add("O,out_range_label_only",
             "if nonzero, only output the range_labels for splitting but not run "
             "split",
@@ -297,14 +301,13 @@ ibdtools_split_main(int argc, char *argv[])
         add("h,help", "print help information");
 
         auto result = options.parse(argc, argv);
-        check_required_option(options, result, "ibd_in");
-        check_required_option(options, result, "meta_in");
-        check_required_option(options, result, "out_prefix");
-
         if (result.count("help")) {
             cerr << options.help({ "" }) << '\n';
             exit(1);
         }
+        check_required_option(options, result, "ibd_in");
+        check_required_option(options, result, "meta_in");
+        check_required_option(options, result, "out_prefix");
 
         cerr << "ibdtools split options received: \n";
         cerr << "--ibd_in:               " << ibd_in_fn << '\n';
@@ -400,7 +403,8 @@ ibdtools_sort_main(int argc, char *argv[])
     Options options("ibdtools sort",
         "`ibdtools sort` sorts the encoded IBD files according IBD indcies of "
         "sample1, hap1, sample2 and hap2, start. The sorted, encoded IBD files are used "
-        "in the following sub commands (ibdtools merge, and ibdtools view)");
+        "in the following sub commands (ibdtools merge, and ibdtools view). Ex:\n\n   "
+        "ibdtools sort -i 1.split1 -o 1.sibd -M 1\n");
 
     try {
         auto add = options.add_options();
@@ -412,13 +416,12 @@ ibdtools_sort_main(int argc, char *argv[])
         add("h,help", "print help message");
 
         auto result = options.parse(argc, argv);
-        check_required_option(options, result, "ibd_in");
-        check_required_option(options, result, "ibd_out");
-
         if (result.count("help")) {
             cerr << options.help({ "" }) << '\n';
             exit(-1);
         }
+        check_required_option(options, result, "ibd_in");
+        check_required_option(options, result, "ibd_out");
 
         cerr << "ibdtools sort options received: \n";
         cerr << "--ibd_in:  " << ibd_in << '\n';
@@ -452,7 +455,8 @@ ibdtools_merge_main(int argc, char *argv[])
         "phased genotypes).  It can be used to reduce breaks in detected IBD due to "
         "phase errors and genotype errors. The subcommand is to a reimplementation of "
         "the Dr. Browning's tool (merge-ibd-segments.17Jan20.102.jar) for better memory "
-        "control and possibly better performance.");
+        "control and possibly better performance. Ex:\n\n   ibdtools merge -i 1.sibd -m "
+        "1.meta -o 1.mibd -M 1\n");
     try {
         auto add = options.add_options();
         add("i,ibd_in", "input IBD file (from ibdtools sort)", value<string>(ibd_in));
@@ -471,15 +475,13 @@ ibdtools_merge_main(int argc, char *argv[])
         add("h,help", "print help message");
 
         auto result = options.parse(argc, argv);
-
-        check_required_option(options, result, "ibd_in");
-        check_required_option(options, result, "meta_in");
-        check_required_option(options, result, "ibd_out");
-
         if (result.count("help")) {
             cerr << options.help({ "" }) << '\n';
             exit(-2);
         }
+        check_required_option(options, result, "ibd_in");
+        check_required_option(options, result, "meta_in");
+        check_required_option(options, result, "ibd_out");
 
         cerr << "ibdtools merge options received: \n";
         cerr << "--ibd_in:  " << ibd_in << '\n';
@@ -520,7 +522,9 @@ ibdtools_matrix_main(int argc, char *argv[])
         "mode 1 for each chromosome (option `-x`). Additional, this subcommand allows "
         "three levels of filtering: i) filtering IBD by sample population; ii) "
         "filtering at IBD segment level (option `-T`) and iii) filtering at total IBD "
-        "level (options `-L` abd `-U`. ");
+        "level (options `-L` abd `-U`. \nEx1:\n   ibdtools matrix -i 1.mibd -m 1.meta "
+        "-M 1 -T 2.5 -L 5 -o 1.mat\n\nEx2:\n   ibdtools matrix -x 1.mat,2.mat,3.mat "
+        "-m 1.meta -T 2.5 -L 5 -o gw.mat -M 3\n");
     try {
         auto add = options.add_options();
         add("i,ibd_in", "input ibdfile (encoded)",
@@ -554,15 +558,14 @@ ibdtools_matrix_main(int argc, char *argv[])
             value<float>(filt_upper_cm)->default_value(to_string(filt_max / 10.0)));
 
         auto result = options.parse(argc, argv);
-        check_required_option(options, result, "meta_in");
-        check_required_option(options, result, "out_prefix");
-
         if (result.count("ibd_in") < 1 && result.count("matrices_in") < 1) {
             cerr << options.help({ "" }) << '\n';
             cerr << "At least one of --ibd_in and --matrices_in should be specified!"
                  << '\n';
             exit(-1);
         }
+        check_required_option(options, result, "meta_in");
+        check_required_option(options, result, "out_prefix");
 
         if (result.count("help")) {
             cerr << options.help({ "" }) << '\n';
@@ -673,7 +676,8 @@ ibdtools_decode_main(int argc, char *argv[])
 
     Options options("ibdtools decode",
         "`ibdtools decode` decode binary ibd to compressed text "
-        "format. It also allowed filtering IBD by samples");
+        "format. It also allowed filtering IBD by samples. Ex: \n\n  ibdtools decode -i "
+        "$i.split1 -m 1.meta -o 1.ibd.gz -M 1\n");
 
     try {
         auto add = options.add_options();
@@ -687,14 +691,13 @@ ibdtools_decode_main(int argc, char *argv[])
         add("h,help", "print help information");
 
         auto result = options.parse(argc, argv);
-        check_required_option(options, result, "ibd_in");
-        check_required_option(options, result, "meta_in");
-        check_required_option(options, result, "ibd_out");
-
         if (result.count("help")) {
             cerr << options.help({ "" }) << '\n';
             exit(-1);
         }
+        check_required_option(options, result, "ibd_in");
+        check_required_option(options, result, "meta_in");
+        check_required_option(options, result, "ibd_out");
 
         cerr << "ibdtools decode options received: \n";
         cerr << "--ibd_in:         " << ibd_in << '\n';
@@ -742,7 +745,8 @@ ibdtools_view_main(int argc, char *argv[])
     Options options("ibdtools view",
         "view ibd segments shared by a pair of sample names or a pair "
         "ids. NOTE, the order of the sample names and ids are "
-        "unimportant as they will bed sorted internally by ibdtools");
+        "unimportant as they will bed sorted internally by ibdtools. Ex:\n\n   ibdtools "
+        "view -i 1.mibd -m 1.meta -1 4 -2 6\n");
 
     try {
         auto add = options.add_options();
@@ -758,13 +762,12 @@ ibdtools_view_main(int argc, char *argv[])
         add("h,help", "print help message");
 
         auto result = options.parse(argc, argv);
-        check_required_option(options, result, "ibd_in");
-        check_required_option(options, result, "meta_in");
-
         if (result.count("help")) {
             cerr << options.help({ "" }) << '\n';
             exit(-1);
         }
+        check_required_option(options, result, "ibd_in");
+        check_required_option(options, result, "meta_in");
 
         cerr << "ibdtools view options received: \n";
         cerr << "--ibd_in:  " << ibd_in << '\n';
@@ -843,7 +846,8 @@ ibdtools_stat_main(int argc, char *argv[])
     Options options("ibdtools stat",
         "`ibdtools stat` calculate the distribution of IBD length by "
         "counting IBD segments in all length bins. The ith bin "
-        "correpond to IBD with length in a range of [i, i+1) cM ");
+        "correponds to IBD with length in a range of [i, i+1) cM. Ex:\n\n   ibdtools "
+        "stat -i 1.mibd -m 1.meta -o 1_stat.txt -M 1\n");
 
     try {
         auto add = options.add_options();
@@ -856,14 +860,13 @@ ibdtools_stat_main(int argc, char *argv[])
         add("h,help", "print help message");
 
         auto result = options.parse(argc, argv);
-        check_required_option(options, result, "ibd_in");
-        check_required_option(options, result, "meta_in");
-        check_required_option(options, result, "out");
-
         if (result.count("help")) {
             cerr << options.help({ "" }) << '\n';
             exit(-2);
         }
+        check_required_option(options, result, "ibd_in");
+        check_required_option(options, result, "meta_in");
+        check_required_option(options, result, "out");
 
         assert(stat_out != "");
 
