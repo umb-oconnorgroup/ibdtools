@@ -10,7 +10,6 @@
 #include "cxxopts.hpp"
 #include "htslib/bgzf.h"
 #include <algorithm>
-#include <argp.h>
 #include <cassert>
 #include <cctype>
 #include <cstdint>
