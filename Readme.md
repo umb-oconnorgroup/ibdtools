@@ -19,3 +19,27 @@ conda activate ibdtools
 cd src
 make ibdtools
 ```
+
+# Simulated data and example
+
+```sh
+cd example
+
+# simulating data
+./simulate_data.py
+
+# running ibdtools on the simulated input data
+example/example.sh
+```
+
+# Documentation
+
+1. List all available subcommand:
+```sh
+./ibdtools 
+```
+
+2. Show help message/documentation for a subcommand
+```sh
+./ibdtools [subcommand] -h
+```
