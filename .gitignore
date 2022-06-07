@@ -3,3 +3,6 @@ compile_commands.json
 ibdtools
 tests
 *.AppImage
+example/*
+!example/*.sh
+!example/*.py
