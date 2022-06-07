@@ -87,6 +87,9 @@ cd example
 example/example.sh
 ```
 
+# Read ibdtools matrix to numpy array
+See `example/read_mat.py` 
+
 # Documentation
 
 1. List all available subcommand:
