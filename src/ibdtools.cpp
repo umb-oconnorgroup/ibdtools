@@ -523,7 +523,8 @@ ibdtools_matrix_main(int argc, char *argv[])
         "level (options `-L` abd `-U`. ");
     try {
         auto add = options.add_options();
-        add("i,ibd_in", "input ibdfile (encoded)", value<string>(ibd_in));
+        add("i,ibd_in", "input ibdfile (encoded)",
+            value<string>(ibd_in)->default_value(""));
         add("x,matrices_in",
             "matrices to be combined. When this is given, --meta_in can be the "
             "metafile of any chromsome as it only uses sample information from it "
