@@ -127,8 +127,11 @@ class IbdMatrix
 
     void
     calculate_total_from_ibdfile(IbdFile &ibdfile, bool use_hap_pair = false,
-        const char *subpop_fn = NULL, float min_cM = 2.0)
+        const char *subpop_fn = NULL, float min_cM = 2.0, float max_cM = -1.0)
     {
+        if (max_cM < min_cM) {
+            max_cM = std::numeric_limits<float>::max();
+        }
         MetaFile *meta = ibdfile.get_meta();
         assert(meta != NULL && "calculate total need info from the meta file");
 
@@ -162,7 +165,7 @@ class IbdMatrix
                     pid1 = rec.get_pid1();
                     pid2 = rec.get_pid2();
                     cM = pos.get_cm(pid2) - pos.get_cm(pid1);
-                    if (cM < min_cM)
+                    if (cM < min_cM || cM > max_cM)
                         continue;
                     at(row, col) += lround(cM * 10);
                 }
