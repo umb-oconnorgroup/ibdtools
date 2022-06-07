@@ -63,17 +63,19 @@ cd ibdtools
 2. `fmt` 
 3. `gtest`
 
-They can be install using conda
+They can be installed using `conda`
 ```sh
 conda env create -f env.yml
 ```
-# Compile ibdtools
+# Compile `ibdtools`
 
 ```sh
 conda activate ibdtools
-cd src
-make ibdtools
+meson build
+ninja -C build
 ```
+
+`ibdtools` binary file will be made under `./build/`
 
 # Simulated data and example
 
