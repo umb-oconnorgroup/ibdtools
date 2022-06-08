@@ -629,7 +629,7 @@ read_vector_from_file(std::vector<T> &v, BGZF *fp)
         std::string buffer_str;
 
         // get size info from file
-        ret = bgzf_write(fp, &total_bytes, sizeof(total_bytes));
+        ret = bgzf_read(fp, &total_bytes, sizeof(total_bytes));
         exit_on_false(
             ret >= 0 && ((size_t) ret) == sizeof(total_bytes), "", __FILE__, __LINE__);
 
@@ -637,7 +637,7 @@ read_vector_from_file(std::vector<T> &v, BGZF *fp)
             // get content from file
             buffer_str.resize(total_bytes);
             ret = bgzf_read(fp, &buffer_str[0], total_bytes);
-            exit_on_false(ret > 0 && ((size_t) ret) == total_bytes,
+            exit_on_false(ret >= 0 && ((size_t) ret) == total_bytes,
                 "read_vector_from_file content reading error for string type", __FILE__,
                 __LINE__);
 
@@ -659,7 +659,7 @@ read_vector_from_file(std::vector<T> &v, BGZF *fp)
 
         // get size info from file
         ret = bgzf_read(fp, &total_bytes, sizeof(total_bytes));
-        exit_on_false(ret > 0 && ((size_t) ret) == sizeof(total_bytes),
+        exit_on_false(ret >= 0 && ((size_t) ret) == sizeof(total_bytes),
             "read_vector_from_file size info reading error for arithemtic/ibd_rec types",
             __FILE__, __LINE__);
 
@@ -667,7 +667,7 @@ read_vector_from_file(std::vector<T> &v, BGZF *fp)
         vector_sz = total_bytes / sizeof(T);
         v.resize(vector_sz);
         ret = bgzf_read(fp, &v[0], total_bytes);
-        exit_on_false(ret > 0 && ((size_t) ret) == total_bytes,
+        exit_on_false(ret >= 0 && ((size_t) ret) == total_bytes,
             "read_vector_from_file content reading error for arithemtic/ibd_rec types",
             __FILE__, __LINE__);
 
@@ -743,10 +743,10 @@ struct GziFile {
         FILE *fp = fopen(fn, "r");
         uint64_t sz = 0;
         ret = fread(&sz, sizeof(sz), 1, fp);
-        exit_on_false(ret > 0 && ((size_t) ret) == 1, "", __FILE__, __LINE__);
+        exit_on_false(ret >= 0 && ((size_t) ret) == 1, "", __FILE__, __LINE__);
         vec.resize(sz);
         ret = fread(&vec[0], sizeof(decltype(vec)::value_type), sz, fp);
-        exit_on_false(ret > 0 && ((size_t) ret) == sz, "", __FILE__, __LINE__);
+        exit_on_false(ret >= 0 && ((size_t) ret) == sz, "", __FILE__, __LINE__);
         fclose(fp);
 
         block_buffer.resize(64 * 1024);
