@@ -10,7 +10,7 @@ git_version_h = vcs_tag(command : ['git', 'describe', '--tags'],
 my_inc = include_directories('./include')
 my_dep = declare_dependency(include_directories: my_inc)
 
-cxxopts_inc = include_directories('./src/cxxopts/')
+cxxopts_inc = include_directories('./src/cxxopts/include')
 cxxopts_dep = declare_dependency(include_directories: cxxopts_inc)
 
 fmt_dep = dependency('fmt')
