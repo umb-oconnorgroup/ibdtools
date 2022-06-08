@@ -30,12 +30,11 @@ class MetaFile
         // ScopedTimer timer("vcffile-parse_files");
 
         htsFile *htsfp = bcf_open(vcf_fn, "r");
-        verify(htsfp != NULL && "Cannot open vcf file");
 
-        // verify(hts_set_threads(htsfp, 3) == 0);
+        exit_on_false(htsfp != NULL, "Cannot open vcf file", __FILE__, __LINE__);
 
         bcf_hdr_t *header = bcf_hdr_read(htsfp);
-        verify(header != NULL && "Cannot read header");
+        exit_on_false(header != NULL, "Cannot read vcf header", __FILE__, __LINE__);
         auto nsam = header->n[BCF_DT_SAMPLE];
 
         genotypes = Genotypes(nsam);
@@ -48,7 +47,7 @@ class MetaFile
             samples.add(header->id[BCF_DT_SAMPLE][i].key);
 
         bcf1_t *rec = bcf_init();
-        verify(rec != NULL && "Cannot initialize bcf record");
+        exit_on_false(rec != NULL, "Cannot initialize bcf record", __FILE__, __LINE__);
 
         // loop over each record
         int32_t *dest = NULL;
@@ -68,7 +67,8 @@ class MetaFile
             if (parse_genotype && success) {
                 // 2. get an array of alleles
                 bcf_get_genotypes(header, rec, &dest, &count);
-                verify(max_ploidy * nsam == count && "Max ploidy is not 2");
+                exit_on_false(max_ploidy * nsam == count, "Max ploidy is not 2",
+                    __FILE__, __LINE__);
 
                 // 3. loop over allele array and store the alleles
                 for (int32_t i = 0; i < count; i += 2) {

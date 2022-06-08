@@ -51,12 +51,10 @@ exit_on_false(bool condition, const char *message, const char *file, int lineno)
 }
 
 inline void
-verify(bool condition)
+exit_with_message(const char *message)
 {
-    if (!condition) {
-        std::cerr << "Error from " << __FILE__ << ":" << __LINE__ << "\n";
-        exit(-1);
-    }
+    std::cerr << "Error: " << message << "\n";
+    exit(-1);
 }
 
 struct region_label_t {
@@ -73,8 +71,9 @@ inline void
 add_exclusion_range(
     std::vector<region_label_t> &label_v, uint32_t pid_left, uint32_t pid_right)
 {
-    verify((label_v.size() > 0) && (label_v[0].pid_s <= pid_left));
-    verify(pid_left < pid_right);
+    exit_on_false(label_v.size() > 0, "", __FILE__, __LINE__);
+    exit_on_false(label_v[0].pid_s <= pid_left, "", __FILE__, __LINE__);
+    exit_on_false(pid_left < pid_right, "", __FILE__, __LINE__);
 
     using namespace std;
     size_t id1, id2;
@@ -322,7 +321,7 @@ struct __attribute__((packed)) ibd_rec1_t {
             this->print();
             r2.print();
         }
-        verify(is_equal(*this, r2));
+        exit_on_false(is_equal(*this, r2), "", __FILE__, __LINE__);
         */
     }
     // getter
@@ -567,17 +566,21 @@ write_vector_to_file(std::vector<T> &v, BGZF *fp)
 {
     if constexpr (std::is_same_v<T, std::string>) {
         size_t total_bytes = 0;
+        bool condition = false;
         std::string buffer_str;
+        ssize_t ret = 0;
 
         // calculate total size
         for (auto &s : v) {
-            verify(std::find(s.begin(), s.end(), '\n') == s.end()
-                   && "string should not contains '\n'");
+            exit_on_false(std::find(s.begin(), s.end(), '\n') == s.end(),
+                "string should not contains '\n'", __FILE__, __LINE__);
             total_bytes += s.size() + 1; // add 1 for '\n'
         }
 
         // write size info
-        verify(bgzf_write(fp, &total_bytes, sizeof(total_bytes)) == sizeof(total_bytes));
+        ret = bgzf_write(fp, &total_bytes, sizeof(total_bytes));
+        condition = ret >= 0 && ((size_t) ret) == sizeof(total_bytes);
+        exit_on_false(condition, "", __FILE__, __LINE__);
 
         // write contents via buffer
         if (total_bytes > 0) {
@@ -586,22 +589,33 @@ write_vector_to_file(std::vector<T> &v, BGZF *fp)
                 buffer_str += s;
                 buffer_str += '\n';
             }
-            verify(bgzf_write(fp, buffer_str.c_str(), total_bytes) == total_bytes
-                   && "write_vector_to_file error for string type");
+            ret = bgzf_write(fp, buffer_str.c_str(), total_bytes);
+            condition = ret >= 0 && ((size_t) ret) == total_bytes;
+            const char *msg = "write_vector_to_file error for string type";
+            exit_on_false(condition, msg, __FILE__, __LINE__);
         }
 
     } else if constexpr (
         std::is_arithmetic_v<
             T> || std::is_same_v<T, ibd_rec1_t> || std::is_same_v<T, ibd_rec2_t>) {
         // write size info
+        ssize_t ret = 0;
         size_t total_bytes = v.size() * sizeof(T);
-        verify(bgzf_write(fp, &total_bytes, sizeof(total_bytes)) == sizeof total_bytes);
+        bool condition = false;
+
+        ret = bgzf_write(fp, &total_bytes, sizeof(total_bytes));
+        condition = ret >= 0 && ((size_t) ret) == sizeof(total_bytes);
+        exit_on_false(condition, "", __FILE__, __LINE__);
+
         // write contents
-        verify(bgzf_write(fp, &v[0], total_bytes) == total_bytes);
-        __used(total_bytes);
+        ret = bgzf_write(fp, &v[0], total_bytes);
+        condition = ret >= 0 && ((size_t) ret) == total_bytes;
+        const char *msg = "write_vector_to_file error for string type";
+        exit_on_false(condition, msg, __FILE__, __LINE__);
 
     } else {
-        verify(false && "write_vector_to_file is not implemented for this Type\n");
+        std::cerr << "write_vector_to_file is not implemented for this Type\n";
+        exit(-1);
     }
 }
 
@@ -611,17 +625,21 @@ read_vector_from_file(std::vector<T> &v, BGZF *fp)
 {
     if constexpr (std::is_same_v<T, std::string>) {
         size_t total_bytes = 0;
+        ssize_t ret = 0;
         std::string buffer_str;
 
         // get size info from file
-        verify(bgzf_read(fp, &total_bytes, sizeof(total_bytes)) == sizeof(total_bytes)
-               && "read_vector_from_file size info reading error for string type");
+        ret = bgzf_write(fp, &total_bytes, sizeof(total_bytes));
+        exit_on_false(
+            ret >= 0 && ((size_t) ret) == sizeof(total_bytes), "", __FILE__, __LINE__);
 
         if (total_bytes > 0) {
             // get content from file
             buffer_str.resize(total_bytes);
-            verify(bgzf_read(fp, &buffer_str[0], total_bytes) == total_bytes
-                   && "read_vector_from_file content reading error for string type");
+            ret = bgzf_read(fp, &buffer_str[0], total_bytes);
+            exit_on_false(ret > 0 && ((size_t) ret) == total_bytes,
+                "read_vector_from_file content reading error for string type", __FILE__,
+                __LINE__);
 
             // fill the vector
             std::istringstream iss(buffer_str);
@@ -637,21 +655,24 @@ read_vector_from_file(std::vector<T> &v, BGZF *fp)
             T> || std::is_same_v<T, ibd_rec1_t> || std::is_same_v<T, ibd_rec2_t>) {
         size_t total_bytes = 0;
         size_t vector_sz = 0;
+        ssize_t ret = 0;
 
         // get size info from file
-        verify(bgzf_read(fp, &total_bytes, sizeof(total_bytes)) == sizeof(total_bytes)
-               && "read_vector_from_file size info reading error for "
-                  "arithemtic/ibd_rec types");
+        ret = bgzf_read(fp, &total_bytes, sizeof(total_bytes));
+        exit_on_false(ret > 0 && ((size_t) ret) == sizeof(total_bytes),
+            "read_vector_from_file size info reading error for arithemtic/ibd_rec types",
+            __FILE__, __LINE__);
 
         // get content from file
         vector_sz = total_bytes / sizeof(T);
         v.resize(vector_sz);
-        verify(bgzf_read(fp, &v[0], total_bytes) == total_bytes
-               && "read_vector_from_file content reading error for arithemtic/ibd_rec "
-                  "types");
+        ret = bgzf_read(fp, &v[0], total_bytes);
+        exit_on_false(ret > 0 && ((size_t) ret) == total_bytes,
+            "read_vector_from_file content reading error for arithemtic/ibd_rec types",
+            __FILE__, __LINE__);
 
     } else {
-        verify(false && "read_vector_to_file is not implemented for this Type\n");
+        exit_with_message("read_vector_to_file is not implemented for this Type\n");
     }
 }
 
@@ -660,14 +681,16 @@ void
 write_element_to_file(T &v, BGZF *fp)
 {
     if constexpr (
+        ssize_t ret = 0;
         std::is_arithmetic_v<
             T> || std::is_same_v<T, ibd_rec1_t> || std::is_same_v<T, ibd_rec2_t>) {
         // get content from file
-        verify(
-            bgzf_write(fp, &v, sizeof v) == sizeof v && "write_element_from_file error");
+        ret = bgzf_write(fp, &v, sizeof v);
+        exit_on_false(ret > 0 && ((size_t) ret) == sizeof v,
+            "write_element_from_file error", __FILE__, __LINE__);
 
     } else {
-        verify(false && "read_element_to_file is not implemented for this Type\n");
+        exit_with_message("read_element_to_file is not implemented for this Type\n");
     }
 }
 template <typename T>
@@ -675,14 +698,16 @@ void
 read_element_from_file(T &v, BGZF *fp)
 {
     if constexpr (
+        ssize_t ret = 0;
         std::is_arithmetic_v<
             T> || std::is_same_v<T, ibd_rec1_t> || std::is_same_v<T, ibd_rec2_t>) {
         // get content from file
-        verify(
-            bgzf_read(fp, &v, sizeof v) == sizeof v && "read_element_from_file error");
+        ret = bgzf_read(fp, &v, sizeof v);
+        exit_on_false(ret > 0 && ((size_t) ret) == sizeof v,
+            "read_element_from_file error", __FILE__, __LINE__);
 
     } else {
-        verify(false && "read_element_to_file is not implemented for this Type\n");
+        exit_with_message("read_element_to_file is not implemented for this Type\n");
     }
 }
 
@@ -691,7 +716,7 @@ read_lines_from_file(const char *fn)
 {
     std::vector<std::string> lines;
     BGZF *fp = bgzf_open(fn, "r");
-    verify(fp != NULL && "bgzf_open error");
+    exit_on_false(fp != NULL, "bgzf_open error", __FILE__, __LINE__);
     kstring_t kstr = { 0 };
     while (bgzf_getline(fp, '\n', &kstr) >= 0) {
         lines.push_back(std::string(ks_c_str(&kstr)));
@@ -714,11 +739,14 @@ struct GziFile {
     GziFile(const char *fn)
     {
         vec.clear();
+        ssize_t ret = 0;
         FILE *fp = fopen(fn, "r");
         uint64_t sz = 0;
-        verify(fread(&sz, sizeof(sz), 1, fp) == 1);
+        ret = fread(&sz, sizeof(sz), 1, fp);
+        exit_on_false(ret > 0 && ((size_t) ret) == 1, "", __FILE__, __LINE__);
         vec.resize(sz);
-        verify(fread(&vec[0], sizeof(decltype(vec)::value_type), sz, fp) == sz);
+        ret = fread(&vec[0], sizeof(decltype(vec)::value_type), sz, fp);
+        exit_on_false(ret > 0 && ((size_t) ret) == sz, "", __FILE__, __LINE__);
         fclose(fp);
 
         block_buffer.resize(64 * 1024);
@@ -783,7 +811,7 @@ class StringViewSplitter
     void
     get(size_t which, T &val)
     {
-        verify(which < sv_vec.size() && "out of range");
+        exit_on_false(which < sv_vec.size(), "out of range", __FILE__, __LINE__);
         if constexpr (std::is_same_v<T, std::string>) {
             val.clear();
             val += sv_vec[which];
@@ -813,7 +841,7 @@ class StringViewSplitter
             std::cout << "type: arithmetic\t";
             */
         } else {
-            verify(false && "get method Not implimented for this type");
+            exit_with_message("get method Not implimented for this type");
         }
         /*
         std::cout << " field: " << which << " value: " << val << '\n';
@@ -877,7 +905,7 @@ class StringViewSplitter
                 std::cout << "type: arithmetic\t";
                 */
             } else {
-                verify(false && "get method Not implimented for this type");
+                exit_with_message("get method Not implimented for this type");
             }
             /*
             std::cout << " field: " << vec.size() - 1 << " value: " << vec.back()
@@ -915,7 +943,8 @@ template <typename T> class TournamentTree
   public:
     TournamentTree(int k_, T max_val) : max_val(max_val), k(k_)
     {
-        verify(k >= 1 && "the number of node needs to be greater than 1");
+        exit_on_false(
+            k >= 1, "the number of node needs to be greater than 1", __FILE__, __LINE__);
 
         for (N = 1; (1UL << N) < (size_t) k; N++)
             ;
@@ -941,7 +970,7 @@ template <typename T> class TournamentTree
     [[nodiscard]] T &
     init_run(std::vector<T> initial_vals, size_t &winner_id)
     {
-        verify(k == initial_vals.size());
+        exit_on_false(k == initial_vals.size(), "", __FILE__, __LINE__);
         std::vector<size_t> layer_start_vec;
         for (size_t layer = 0, count = 0; layer <= N; count += (1 << layer), layer++) {
             layer_start_vec.push_back(count);

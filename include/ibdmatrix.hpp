@@ -80,19 +80,20 @@ class IbdMatrix
     read_matrix_file(const char *matrix_fn)
     {
         BGZF *fp = bgzf_open(matrix_fn, "r");
-        verify(fp != NULL);
+        exit_on_false(fp != NULL, "", __FILE__, __LINE__);
 
         bgzf_mt(fp, 10, 256);
 
         std::string gzi(matrix_fn);
         gzi += ".gzi";
         if (std::filesystem::exists(gzi))
-            verify(0 == bgzf_index_load(fp, matrix_fn, ".gzi"));
+            exit_on_false(
+                0 == bgzf_index_load(fp, matrix_fn, ".gzi"), "", __FILE__, __LINE__);
 
         read_element_from_file(is_hap_pair_m, fp);
         read_element_from_file(d, fp);
         read_vector_from_file(cm10x_vec, fp);
-        verify(get_array_size() == cm10x_vec.size());
+        exit_on_false(get_array_size() == cm10x_vec.size(), "", __FILE__, __LINE__);
 
         bgzf_close(fp);
     }
@@ -101,18 +102,19 @@ class IbdMatrix
     write_matrix_file(const char *matrix_fn)
     {
         BGZF *fp = bgzf_open(matrix_fn, "w");
-        verify(fp != NULL);
+        exit_on_false(fp != NULL, "", __FILE__, __LINE__);
 
         bgzf_mt(fp, 10, 256);
 
         bgzf_index_build_init(fp);
 
-        verify(get_array_size() == cm10x_vec.size());
+        exit_on_false(get_array_size() == cm10x_vec.size(), "", __FILE__, __LINE__);
         write_element_to_file(is_hap_pair_m, fp);
         write_element_to_file(d, fp);
         write_vector_to_file(cm10x_vec, fp);
 
-        verify(0 == bgzf_index_dump(fp, matrix_fn, ".gzi"));
+        exit_on_false(
+            0 == bgzf_index_dump(fp, matrix_fn, ".gzi"), "", __FILE__, __LINE__);
         bgzf_close(fp);
     }
 
@@ -120,7 +122,7 @@ class IbdMatrix
     add_matrix(const IbdMatrix &mat2)
     {
         std::cerr << "mat.d: " << d << " mat2.d: " << mat2.d << '\n';
-        verify(d == mat2.d);
+        exit_on_false(d == mat2.d, "", __FILE__, __LINE__);
         std::transform(cm10x_vec.begin(), cm10x_vec.end(), mat2.cm10x_vec.begin(),
             cm10x_vec.begin(), std::plus<uint16_t>());
     }
@@ -133,7 +135,8 @@ class IbdMatrix
             max_cM = std::numeric_limits<float>::max();
         }
         MetaFile *meta = ibdfile.get_meta();
-        verify(meta != NULL && "calculate total need info from the meta file");
+        exit_on_false(meta != NULL, "calculate total need info from the meta file",
+            __FILE__, __LINE__);
 
         is_hap_pair_m = use_hap_pair;
 
@@ -205,7 +208,7 @@ class IbdMatrix
         std::vector<uint8_t> subpop_v; // vector of 0's and 1's , 1 means sample is of a
                                        // subpopultion of interest
         if (subpop_fn != NULL) {
-            verify(meta != NULL);
+            exit_on_false(meta != NULL, "", __FILE__, __LINE__);
             meta->get_samples().get_subpop_vector(subpop_fn, subpop_v);
 
             // debgu
@@ -245,8 +248,10 @@ class IbdMatrix
     print_to_ostream(std::ostream &os, uint32_t r_first = 0, uint32_t r_last = 10,
         uint32_t c_first = 0, uint32_t c_last = 10)
     {
-        verify(0 <= r_first && r_first < r_last && r_last < d);
-        verify(0 <= c_first && c_first < c_last && c_last < d);
+        exit_on_false(
+            0 <= r_first && r_first < r_last && r_last < d, "", __FILE__, __LINE__);
+        exit_on_false(
+            0 <= c_first && c_first < c_last && c_last < d, "", __FILE__, __LINE__);
 
         for (uint32_t row = r_first; row < r_last; row++) {
             for (uint32_t col = c_first; col < c_last; col++) {

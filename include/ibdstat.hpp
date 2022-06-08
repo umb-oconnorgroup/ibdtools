@@ -18,7 +18,7 @@ class IbdStat
     {
 
         BGZF *fp = bgzf_open(meta_fn, "r");
-        verify(fp != NULL && "can't open meta file");
+        exit_on_false(fp != NULL, "can't open meta file", __FILE__, __LINE__);
         meta.read_from_file(fp, false);
         bgzf_close(fp);
         fp = NULL;

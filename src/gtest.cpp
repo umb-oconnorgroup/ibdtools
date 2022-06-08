@@ -392,7 +392,8 @@ TEST(htslib, DISABLED_bgzf_write_uncompressed)
     std::vector<int> vec;
     size_t sz = 100 * 1024 * 1024;
     vec.resize(sz);
-    ssize_t res;
+    ssize_t res = 0;
+    bool conda = false;
 
     BGZF *bg_fp = bgzf_open("tmp_write_test.gz", "wu");
     res = bgzf_write(bg_fp, &vec[0], sz * sizeof(int));
@@ -400,7 +401,9 @@ TEST(htslib, DISABLED_bgzf_write_uncompressed)
     bgzf_close(bg_fp);
 
     BGZF *fp = bgzf_open("tmp_write_test.gz", "ru");
-    verify(sz * sizeof(int) == bgzf_read(fp, &vec[0], sz * sizeof(int)));
+    res = bgzf_read(fp, &vec[0], sz * sizeof(int));
+    conda = res >= 0 && ((size_t) res) == sz * sizeof(int);
+    exit_on_false(conda, "", __FILE__, __LINE__);
     bgzf_close(fp);
 }
 
@@ -954,12 +957,14 @@ TEST(ibdtools, bgzidx)
         BGZF *fp = bgzf_open(temp_file1, "w");
         bgzf_index_build_init(fp);
         meta.write_to_file(fp);
-        verify(0 == bgzf_index_dump(fp, temp_file1, ".gzi"));
+        auto res = bgzf_index_dump(fp, temp_file1, ".gzi");
+        exit_on_false(res == 0, "", __FILE__, __LINE__);
         bgzf_close(fp);
     }
     {
         BGZF *fp = bgzf_open(temp_file1, "r");
-        verify(0 == bgzf_index_load(fp, temp_file1, ".gzi"));
+        auto res = bgzf_index_load(fp, temp_file1, ".gzi");
+        exit_on_false(res == 0, "", __FILE__, __LINE__);
         __used(fp);
     }
 }

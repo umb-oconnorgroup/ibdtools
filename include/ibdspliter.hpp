@@ -23,7 +23,7 @@ class IbdSplitter
         : labels(labels_), cm_threshold(cm_threshold)
     {
         BGZF *fp = bgzf_open(meta_fn, "r");
-        verify(fp != NULL);
+        exit_on_false(fp != NULL, "", __FILE__, __LINE__);
         meta.read_from_file(fp);
         bgzf_close(fp);
 

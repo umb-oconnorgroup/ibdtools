@@ -33,9 +33,10 @@ class GeneticMap
         size_t line_counter = 0;
         while (std::getline(ifs, line, '\n')) {
             if (line_counter < 10) {
-                verify((line.npos == line.find_first_of('\t'))
-                       && "Error in parsing plink map. Found tab but should use space "
-                          "as column delimiter");
+                exit_on_false((line.npos == line.find_first_of('\t')),
+                    "Error in parsing plink map. Found tab but should use space "
+                    "as column delimiter",
+                    __FILE__, __LINE__);
             }
             std::istringstream iss(line);
             std::getline(iss, field, ' ');
@@ -101,7 +102,7 @@ class GeneticMap
     void
     print_range_info(size_t lower_id)
     {
-        verify(lower_id >= 0);
+        exit_on_false(lower_id >= 0, "", __FILE__, __LINE__);
         if (lower_id >= bp_pos_vec.size() - 1) {
             std::cout << std::setprecision(10) << "bp [" << bp_pos_vec.back() << ", Inf)"
                       << " cm [" << cm_pos_vec.back()
@@ -206,8 +207,9 @@ class GeneticMap
     void
     add_final_slope()
     {
-        verify(slope_vec.size() + 1 == bp_pos_vec.size()
-               && "The GeneticMap might already have added the final slope");
+        exit_on_false(slope_vec.size() + 1 == bp_pos_vec.size(),
+            "The GeneticMap might already have added the final slope", __FILE__,
+            __LINE__);
         // extrapolate the last slope
         slope_vec.push_back(slope_vec.back());
     }
