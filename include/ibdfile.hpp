@@ -21,7 +21,7 @@ class IbdFile
   public:
     IbdFile(){};
     IbdFile(const char *ibd_fn, MetaFile *meta_ = NULL, size_t max_rec = 1 * 1024 * 1024)
-        : meta(meta_), filename{ ibd_fn }, fp{ NULL }
+        : filename{ ibd_fn }, fp{ NULL }, meta(meta_)
     {
         ibd_vec.reserve(max_rec);
     }
@@ -205,7 +205,7 @@ class IbdFile
 
         // loop read in from encoded file and write to decoded file
         bool did_vec_read_full;
-        size_t sid1, sid2, pid1, pid2;
+        // size_t sid1, sid2, pid1, pid2;
         ibd_rec1_t tmp_rec;
         std::string chrom_name = positions.get_chrom_id() == -1
                                      ? "0"

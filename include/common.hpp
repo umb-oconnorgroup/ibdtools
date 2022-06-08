@@ -376,13 +376,6 @@ struct __attribute__((packed)) ibd_rec1_t {
         ((uint16_t *) this)[4] = ~(uint16_t) 0;
     }
 
-    void
-    random()
-    {
-        int a = rand();
-        const size_t sz = sizeof(int);
-    }
-
     // less than operator
     // Sort by fields in the order of: sid1, sid2, pid1, pid2, hid1, hid2
     friend bool
@@ -505,8 +498,9 @@ class ScopedTimer
 
   public:
     ScopedTimer(const char *func, bool human_readable = false)
-        : function_name_{ func }, start_{ ClockType::now() },
-          human_readable(human_readable)
+        : human_readable(human_readable), function_name_{ func }, start_{
+              ClockType::now()
+          }
     {
     }
     ScopedTimer(ScopedTimer &&) = delete;
@@ -521,7 +515,6 @@ class ScopedTimer
         auto stop = ClockType::now();
         auto duration = (stop - start_);
         auto ms = duration_cast<milliseconds>(duration);
-        uint8_t flags = 0;
         if (human_readable) {
             auto d = duration_cast<days>(duration);
             duration -= d;
@@ -553,7 +546,6 @@ write_vector_to_file(std::vector<T> &v, BGZF *fp)
 {
     if constexpr (std::is_same_v<T, std::string>) {
         size_t total_bytes = 0;
-        size_t bytes_written = 0;
         std::string buffer_str;
 
         // calculate total size
@@ -994,7 +986,7 @@ template <typename T> class TournamentTree
     replace_run(T val, size_t &winner_id)
     {
         size_t this_node_id = layer_N_start + root().leaf;
-        size_t parent_id, sister_id;
+        // size_t parent_id, sister_id;
 
         // update this node's value
         node_vec[this_node_id].val = val;

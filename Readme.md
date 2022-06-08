@@ -94,7 +94,7 @@ See `example/read_mat.py`
 
 # Documentation
 
-1. List all available subcommand:
+1. List all available subcommands
 ```sh
 ./ibdtools 
 ```

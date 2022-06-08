@@ -38,15 +38,15 @@ class IbdMerger
           max_cm(max_cm), max_snp(max_snp)
     {
         // MetaFile object can not be a local variable in this function. make it a
-	// member variable
-	//
+        // member variable
+        //
         // read meta
         BGZF *fp = bgzf_open(meta_fn, "r");
         assert(fp != NULL);
         meta.read_from_file(fp);
         bgzf_close(fp);
 
-        in = IbdFile(in_fn, &meta, max_rec_allowed_by_ram);
+        in = IbdFile(in_fn, &meta, this->max_rec_allowed_by_ram);
         out = IbdFile(out_fn, NULL, 0);
     }
 
@@ -91,7 +91,7 @@ class IbdMerger
     size_t
     find_group_start(size_t id)
     {
-        size_t id_o = id;
+        // size_t id_o = id;
 
         auto &vec = in.get_vec();
         assert(id >= 0 && id < vec.size());

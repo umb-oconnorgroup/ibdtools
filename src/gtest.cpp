@@ -65,7 +65,7 @@ TEST(htslib, k_split_k_split_core)
 
     auto does_ksplit_core_cause_reallocation = [&](std::string line) mutable {
         int *old_buf = buf;
-        int acutal_num_fields = ksplit_core(&line[0], '\t', &buf_sz, &buf);
+        ksplit_core(&line[0], '\t', &buf_sz, &buf);
         return buf != old_buf;
     };
 
@@ -95,8 +95,8 @@ TEST(ibdtools, GeneticMap)
 
     size_t first_bp = gmap.get_first_nonzero_bp();
     size_t last_bp = gmap.get_last_bp();
-    long double first_cm = gmap.get_first_nonzero_cm();
-    long double last_cm = gmap.get_last_cm();
+    // long double first_cm = gmap.get_first_nonzero_cm();
+    // long double last_cm = gmap.get_last_cm();
 
     // std::cout << first_bp << ',' << last_bp << ',' << first_cm << ',' << last_cm <<
     // '\n';
@@ -412,7 +412,6 @@ TEST(htslib, DISABLED_bgzf_write_uncompressed_vs_fwrite)
     assert(res == sz);
     fclose(bg_fp);
 
-    int val = 0;
     FILE *fp = fopen("tmp_write_test.gz", "ru");
     res = fread(&vec[0], sizeof(int), sz, fp);
     assert(res == sz);
@@ -674,14 +673,14 @@ TEST(ibdtools, IbdSplitter)
             return seg_vec;
         };
 
-        auto print_segv = [](SegV seg_vec) {
-            std::cout << "Print_seg_start \n";
-            for (auto seg : seg_vec) {
-                std::cout << "Seg: (" << seg.pid_l << ", " << seg.pid_r
-                          << "), label = " << seg.label << '\n';
-            }
-            std::cout << "Print_seg_end \n";
-        };
+        // auto print_segv = [](SegV seg_vec) {
+        //     std::cout << "Print_seg_start \n";
+        //     for (auto seg : seg_vec) {
+        //         std::cout << "Seg: (" << seg.pid_l << ", " << seg.pid_r
+        //                   << "), label = " << seg.label << '\n';
+        //     }
+        //     std::cout << "Print_seg_end \n";
+        // };
 
         EXPECT_TRUE((split({ 0, 1 }) == SegV{}));
         EXPECT_TRUE((split({ 2, 4 }) == SegV{ { 2, 4, 1 } }));
