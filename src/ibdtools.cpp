@@ -103,6 +103,8 @@ ibdtools_encode_main(int argc, char *argv[])
         exit(-1);
     }
 
+    ScopedTimer timer("ibdtools encode", true);
+
     // call actual functions
     // open file for save meta file
     BGZF *fp = NULL;
@@ -166,6 +168,8 @@ ibdtools_snpdens_main(int argc, char *argv[])
         cerr << e.what() << '\n';
         exit(-1);
     }
+
+    ScopedTimer timer("ibdtools snpdens", true);
 
     // Calculate snp density
     // open file for save meta file
@@ -237,6 +241,8 @@ ibdtools_coverage_main(int argc, char *argv[])
         cerr << ex.what() << '\n';
         exit(-1);
     }
+
+    ScopedTimer timer("ibdtools coverage", true);
 
     // calc coverage
     const char *subpop_fn_char = NULL;
@@ -328,6 +334,8 @@ ibdtools_split_main(int argc, char *argv[])
         cerr << ex.what() << '\n';
         exit(-1);
     }
+
+    ScopedTimer timer("ibdtools split", true);
 
     {
         // ranges by SNP density
@@ -438,6 +446,9 @@ ibdtools_sort_main(int argc, char *argv[])
         cerr << ex.what() << '\n';
         exit(-1);
     }
+
+    ScopedTimer timer("ibdtools sort", true);
+
     IbdSorter sorter(ibd_in.c_str(), ibd_out.c_str(), "w", (ibd_out + "_tmp_").c_str(),
         mem / 10 * 1024 * 1024 * 1024);
     sorter.sort_into_chunks();
@@ -501,6 +512,8 @@ ibdtools_merge_main(int argc, char *argv[])
         cerr << ex.what() << '\n';
         exit(-1);
     }
+
+    ScopedTimer timer("ibdtools merge", true);
 
     IbdMerger merger(ibd_in.c_str(), ibd_out.c_str(), "w", meta_in.c_str(),
         mem / 10 * 1024 * 1024 * 1024, max_snp, max_cm);
@@ -608,6 +621,8 @@ ibdtools_matrix_main(int argc, char *argv[])
         cerr << ex.what() << '\n';
         exit(-1);
     }
+
+    ScopedTimer timer("ibdtools matrix", true);
 
     // prepare meta and ibd file objects
     MetaFile meta;
@@ -729,6 +744,8 @@ ibdtools_decode_main(int argc, char *argv[])
         exit(-1);
     }
 
+    ScopedTimer timer("ibdtools decode", true);
+
     // open file for save meta file
     BGZF *fp = NULL;
 
@@ -804,6 +821,8 @@ ibdtools_view_main(int argc, char *argv[])
         cerr << ex.what() << '\n';
         exit(-1);
     }
+
+    ScopedTimer timer("ibdtools view", true);
 
     MetaFile meta;
     BGZF *fp = bgzf_open(meta_in.c_str(), "r");
@@ -901,6 +920,8 @@ ibdtools_stat_main(int argc, char *argv[])
         cerr << ex.what() << '\n';
         exit(-1);
     }
+
+    ScopedTimer timer("ibdtools stat", true);
 
     IbdStat stats(ibd_in.c_str(), meta_in.c_str(), genome_sz_cM,
         mem * 1024 * 1024 * 1024 / sizeof(ibd_rec1_t));
