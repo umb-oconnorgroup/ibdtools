@@ -16,9 +16,9 @@ ibdtools.AppImage: build/ibdtools
 	fi
 	./linuxdeploy-x86_64.AppImage \
 		-e build/ibdtools \
-		-l $$(ldd ibdtools | grep libstdc++ | sed -e 's/^\s*//' | awk '{print $$3}') \
-		-l $$(ldd ibdtools | grep libhts    | sed -e 's/^\s*//' | awk '{print $$3}') \
-		-l $$(ldd ibdtools | grep libfmt    | sed -e 's/^\s*//' | awk '{print $$3}') \
+		-l $$(ldd build/ibdtools | grep libstdc++ | sed -e 's/^\s*//' | awk '{print $$3}') \
+		-l $$(ldd build/ibdtools | grep libhts    | sed -e 's/^\s*//' | awk '{print $$3}') \
+		-l $$(ldd build/ibdtools | grep libfmt    | sed -e 's/^\s*//' | awk '{print $$3}') \
 		--appdir ibdtools.AppDir \
 		-d appimage/ibdtools.desktop \
 		-i appimage/icon_256x256.png \
