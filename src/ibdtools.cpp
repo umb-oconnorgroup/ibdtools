@@ -8,6 +8,7 @@
 #include "../include/ibdstat.hpp"
 #include "../include/metafile.hpp"
 #include "cxxopts.hpp"
+#include "git_version.h"
 #include "htslib/bgzf.h"
 #include <algorithm>
 #include <cassert>
@@ -42,6 +43,7 @@ ibdtools_encode_main(int argc, char *argv[])
     // parse cmd options
 
     Options options("ibdtools encode",
+        "ibdtools " MY_GIT_VERSION "  "
         "`ibdtools encode` encodes the ibd file from IBD caller, the vcf file (phased, "
         "gimputed and biallelic) and the genetic map (plink format) information into "
         "binary. NOTE: Each set of these files should contain information for a single "
@@ -54,7 +56,7 @@ ibdtools_encode_main(int argc, char *argv[])
         "instead of bp positions to save memory ; additional trick like struct packing "
         "is used to save extra memory. The encoded ibd and meta files (as well as the "
         "*.gzi index files ) are used as input for other subcommands. The encoded IBD "
-        "can be decoded into text format via `ibdtools decode` subcommand. Ex:\n\n  "
+        "can be decoded into text format via `ibdtools decode` subcommand.\nEx:\n  "
         "ibdtools encode -i 1.ibd.gz -v 1.vcf.gz -g 1.map -c 1 -o 1.eibd -m 1.meta -M "
         "1\n");
     // options.set_width(80);
@@ -131,8 +133,9 @@ ibdtools_snpdens_main(int argc, char *argv[])
 
     // parse argument
     Options options("ibdtools snpdens",
+        "ibdtools " MY_GIT_VERSION "  "
         "`ibdtools snpdens` calculates the number of snps in each window which can be."
-        "This step does not need the enocded ibd file. Ex:\n\n  ibdtools snpdens -m "
+        "This step does not need the enocded ibd file. \nEx:\n  ibdtools snpdens -m "
         "1.meta -o 1_snpdens.txt\n");
     // options.set_width(80);
 
@@ -196,10 +199,11 @@ ibdtools_coverage_main(int argc, char *argv[])
     float window = 1.0; // 1cM
 
     Options options("ibdtools coverage",
+        "ibdtools " MY_GIT_VERSION "  "
         "`ibdtools coverage` caculates the numbers of IBD segments overlapping "
         "specified windows. When `-P` is used, the calculation with will be performed "
         "on the subset of IBD that are shared between a pair of samples from the "
-        "specified list of samples. Ex:\n\n  ibdtools coverage -i 1.mibd -m 1.meta -M 1 "
+        "specified list of samples. \nEx:\n  ibdtools coverage -i 1.mibd -m 1.meta -M 1 "
         "-o 1_cov.txt\n");
     try {
         auto add = options.add_options();
@@ -262,6 +266,7 @@ ibdtools_split_main(int argc, char *argv[])
     };
 
     Options options("ibdtools split",
+        "ibdtools " MY_GIT_VERSION "  "
         "`ibdtools split` splits and removes IBD within specified "
         "specified regions or calculated regions with low snp density. `-W`, `-S` and "
         "`-C` options can be used to specified how low-SNP-density regions will be "
@@ -270,7 +275,7 @@ ibdtools_split_main(int argc, char *argv[])
         "overapping with the boundaries of target regions are first cut into parts, "
         "those within the target regions and those outside the target regions. The "
         "parts within of the target regions are removed; the parts outside will be "
-        "keeped if it is long enough (`C` option). Ex:\n\n   ibdtools split -i 1.eibd "
+        "keeped if it is long enough (`C` option). \nEx:\n   ibdtools split -i 1.eibd "
         "-m 1.meta -W 2 -S 10 -o 1.split -M 1\n");
     try {
         auto add = options.add_options();
@@ -400,9 +405,10 @@ ibdtools_sort_main(int argc, char *argv[])
     size_t k_way;
 
     Options options("ibdtools sort",
+        "ibdtools " MY_GIT_VERSION "  "
         "`ibdtools sort` sorts the encoded IBD files according IBD indcies of "
         "sample1, hap1, sample2 and hap2, start. The sorted, encoded IBD files are used "
-        "in the following sub commands (ibdtools merge, and ibdtools view). Ex:\n\n   "
+        "in the following sub commands (ibdtools merge, and ibdtools view). \nEx:\n   "
         "ibdtools sort -i 1.split1 -o 1.sibd -M 1\n");
 
     try {
@@ -449,12 +455,13 @@ ibdtools_merge_main(int argc, char *argv[])
     float max_cm;
 
     Options options("ibdtools merge",
+        "ibdtools " MY_GIT_VERSION "  "
         "`ibdtools merge` merges IBD segments if they close enough (by comparing IBD "
         "coordinates) and only separated by a few discordant sites (by checking the "
         "phased genotypes).  It can be used to reduce breaks in detected IBD due to "
         "phase errors and genotype errors. The subcommand is to a reimplementation of "
         "the Dr. Browning's tool (merge-ibd-segments.17Jan20.102.jar) for better memory "
-        "control and possibly better performance. Ex:\n\n   ibdtools merge -i 1.sibd -m "
+        "control and possibly better performance. \nEx:\n   ibdtools merge -i 1.sibd -m "
         "1.meta -o 1.mibd -M 1\n");
     try {
         auto add = options.add_options();
@@ -513,6 +520,7 @@ ibdtools_matrix_main(int argc, char *argv[])
     auto filt_max = numeric_limits<uint16_t>::max();
 
     Options options("ibdtools matrix",
+        "ibdtools " MY_GIT_VERSION "  "
         "`ibdtools matrix` aggregates IBD segments into sample-pair total IBD matrix. "
         "There are two modes: i) calculate chromosome-wide sample pair total IBD where "
         "input is the encoded ibd file for the corresponding chromosome (options `-i`); "
@@ -522,7 +530,7 @@ ibdtools_matrix_main(int argc, char *argv[])
         "three levels of filtering: i) filtering IBD by sample population; ii) "
         "filtering at IBD segment level (option `-T` and `-B`) and iii) filtering at "
         "total IBD level (options `-L` abd `-U`). \nEx1:\n   ibdtools matrix -i 1.mibd "
-        "-m 1.meta -M 1 -B 2.5 -L 5 -o 1.mat\n\nEx2:\n   ibdtools matrix -x "
+        "-m 1.meta -M 1 -B 2.5 -L 5 -o 1.mat\nEx2:\n   ibdtools matrix -x "
         "1.mat,2.mat,3.mat -m 1.meta -B 2.5 -L 5 -o gw.mat -M 3\n");
     try {
         auto add = options.add_options();
@@ -684,8 +692,9 @@ ibdtools_decode_main(int argc, char *argv[])
     float mem = 10.0;
 
     Options options("ibdtools decode",
+        "ibdtools " MY_GIT_VERSION "  "
         "`ibdtools decode` decode binary ibd to compressed text "
-        "format. It also allowed filtering IBD by samples. Ex: \n\n  ibdtools decode -i "
+        "format. It also allowed filtering IBD by samples. \nEx:\n  ibdtools decode -i "
         "$i.split1 -m 1.meta -o 1.ibd.gz -M 1\n");
 
     try {
@@ -752,9 +761,10 @@ ibdtools_view_main(int argc, char *argv[])
     string sample1, sample2;
     float mem;
     Options options("ibdtools view",
+        "ibdtools " MY_GIT_VERSION "  "
         "view ibd segments shared by a pair of sample names or a pair "
         "ids. NOTE, the order of the sample names and ids are "
-        "unimportant as they will bed sorted internally by ibdtools. Ex:\n\n   ibdtools "
+        "unimportant as they will bed sorted internally by ibdtools. \nEx:\n   ibdtools "
         "view -i 1.mibd -m 1.meta -1 4 -2 6\n");
 
     try {
@@ -853,9 +863,10 @@ ibdtools_stat_main(int argc, char *argv[])
     string ibd_in, meta_in, stat_out;
     float genome_sz_cM, mem;
     Options options("ibdtools stat",
+        "ibdtools " MY_GIT_VERSION "  "
         "`ibdtools stat` calculate the distribution of IBD length by "
         "counting IBD segments in all length bins. The ith bin "
-        "correponds to IBD with length in a range of [i, i+1) cM. Ex:\n\n   ibdtools "
+        "correponds to IBD with length in a range of [i, i+1) cM. \nEx:\n   ibdtools "
         "stat -i 1.mibd -m 1.meta -o 1_stat.txt -M 1\n");
 
     try {
@@ -912,7 +923,8 @@ main(int argc, char *argv[])
     vector<string> subcmds = { "encode", "snpdens", "coverage", "split", "sort", "merge",
         "matrix", "decode", "view", "stat" };
     auto err_msg = [&]() {
-        cerr << "Usage: ibdtools <subcmd> [options]. Available subcmd: \n";
+        cerr << "ibdtools:" MY_GIT_VERSION
+                "\nUsage: ibdtools <subcmd> [options]. Available subcmd: \n";
         for (auto s : subcmds)
             cerr << "\t - " << s << '\n';
         cerr << " For more information, run: ibdtools <subcmd> --help\n";

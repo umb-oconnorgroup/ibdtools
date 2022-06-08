@@ -1,6 +1,11 @@
 project('ibdools', 'cpp', 
-  version : run_command('git', 'rev-parse',  '--short', 'HEAD').stdout().strip(),
+  version : run_command('git', 'describe',  '--tag', check: false).stdout().strip(),
   default_options : ['c_std=c11', 'cpp_std=c++17'])
+
+git_version_h = vcs_tag(command : ['git', 'describe', '--tags'],
+            input : 'git_version.txt',
+            output :'git_version.h',
+            replace_string:'@GIT_VERSION@')
 
 my_inc = include_directories('./include')
 my_dep = declare_dependency(include_directories: my_inc)
@@ -14,7 +19,7 @@ htslib_dep = dependency('htslib')
 
 # ibdtools
 ibdtools_dep = [my_dep, cxxopts_dep, fmt_dep, htslib_dep]
-executable('ibdtools', 'src/ibdtools.cpp', dependencies: ibdtools_dep)
+executable('ibdtools', git_version_h, 'src/ibdtools.cpp', dependencies: ibdtools_dep)
 
 # tests
 gtest_dep = dependency('gtest')
