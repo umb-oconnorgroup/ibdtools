@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <functional>
 #include <htslib/bgzf.h>
 #include <htslib/hts.h>
 
@@ -25,6 +26,9 @@
 #include <unordered_map>
 #include <vector>
 
+// Avoiding unused variables warnings when using assert()
+#define __used(x) ((void) (x))
+
 // from htslib bgzf.c
 typedef struct {
     uint64_t uaddr; // offset w.r.t. uncompressed data
@@ -37,6 +41,15 @@ typedef struct {
 //     bgzidx1_t *offs;      // offsets
 //     uint64_t ublock_addr; // offset of the current block (uncompressed data)
 // };
+
+inline void
+exit_on_false(bool condition, const char *message, const char *file, int lineno)
+{
+    if (!condition) {
+        std::cerr << "Error from " << file << ":" << lineno << ": " << message << "\n";
+        exit(-1);
+    }
+}
 
 struct region_label_t {
     uint32_t pid_s : 24; // region start position id
@@ -577,6 +590,7 @@ write_vector_to_file(std::vector<T> &v, BGZF *fp)
         assert(bgzf_write(fp, &total_bytes, sizeof(total_bytes)) == sizeof total_bytes);
         // write contents
         assert(bgzf_write(fp, &v[0], total_bytes) == total_bytes);
+        __used(total_bytes);
 
     } else {
         assert(false && "write_vector_to_file is not implemented for this Type\n");
@@ -588,7 +602,7 @@ void
 read_vector_from_file(std::vector<T> &v, BGZF *fp)
 {
     if constexpr (std::is_same_v<T, std::string>) {
-        size_t total_bytes;
+        size_t total_bytes = 0;
         std::string buffer_str;
 
         // get size info from file
@@ -613,8 +627,8 @@ read_vector_from_file(std::vector<T> &v, BGZF *fp)
     } else if constexpr (
         std::is_arithmetic_v<
             T> || std::is_same_v<T, ibd_rec1_t> || std::is_same_v<T, ibd_rec2_t>) {
-        size_t total_bytes;
-        size_t vector_sz;
+        size_t total_bytes = 0;
+        size_t vector_sz = 0;
 
         // get size info from file
         assert(bgzf_read(fp, &total_bytes, sizeof(total_bytes)) == sizeof(total_bytes)
@@ -895,7 +909,7 @@ template <typename T> class TournamentTree
     {
         assert(k >= 1 && "the number of node needs to be greater than 1");
 
-        for (N = 1; (1 << N) < k; N++)
+        for (N = 1; (1UL << N) < (size_t) k; N++)
             ;
         // std::cout << "k = " << k << " N: " << N << " 2^n = " << (1 << N) << '\n';
         size_t sz = 0;
@@ -929,7 +943,7 @@ template <typename T> class TournamentTree
 
         for (size_t layer = N; layer != size_max; layer--) {
             // std::cout << "for layer: " << layer << '\n';
-            for (size_t i = 0; i < (1 << layer); i++) {
+            for (size_t i = 0; i < (1UL << layer); i++) {
                 size_t this_node_id = layer_start_vec[layer] + i;
                 Node &node = node_vec[this_node_id];
                 // initialize parent

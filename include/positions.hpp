@@ -97,7 +97,7 @@ class Positions
     }
 
     std::vector<region_label_t>
-    get_gap_vector(float window_in_cm = 2.0, int min_snp_per_window = 2)
+    get_gap_vector(float window_in_cm = 2.0, uint32_t min_snp_per_window = 2)
     {
         std::vector<uint32_t> count_per_2cm = get_window_counts(window_in_cm);
 

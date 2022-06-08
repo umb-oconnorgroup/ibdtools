@@ -351,7 +351,7 @@ ibdtools_split_main(int argc, char *argv[])
             ifstream ifs(exclusion_range_fn);
             uint32_t left, right;
             double leftf, rightf;
-            uint32_t pid1, pid2;
+            uint32_t pid1 = 0, pid2 = 0;
             string type;
             string line;
             StringViewSplitter spliter("\t");

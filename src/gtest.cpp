@@ -106,13 +106,15 @@ TEST(ibdtools, GeneticMap)
 
     bp = first_bp;
     cm = gmap.get_cm(bp);
-    if (!gmap.isin_horizontal_region(cm))
+    if (!gmap.isin_horizontal_region(cm)) {
         EXPECT_EQ(bp, gmap.get_bp(cm));
+    }
 
     bp = last_bp;
     cm = gmap.get_cm(bp);
-    if (!gmap.isin_horizontal_region(cm))
+    if (!gmap.isin_horizontal_region(cm)) {
         EXPECT_EQ(bp, gmap.get_bp(cm));
+    }
 
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -122,19 +124,22 @@ TEST(ibdtools, GeneticMap)
 
         bp = unif(gen) % first_bp;
         cm = gmap.get_cm(bp);
-        if (!gmap.isin_horizontal_region(cm))
+        if (!gmap.isin_horizontal_region(cm)) {
             EXPECT_EQ(bp, gmap.get_bp(cm));
+        }
 
         bp = unif(gen) % (last_bp - first_bp) + first_bp;
         cm = gmap.get_cm(bp);
-        if (!gmap.isin_horizontal_region(cm))
+        if (!gmap.isin_horizontal_region(cm)) {
             EXPECT_EQ(bp, gmap.get_bp(cm));
+        }
 
         while ((bp = unif(gen) % 300 * 1024 * 1024) <= last_bp)
             ;
         cm = gmap.get_cm(bp);
-        if (!gmap.isin_horizontal_region(cm))
+        if (!gmap.isin_horizontal_region(cm)) {
             EXPECT_EQ(bp, gmap.get_bp(cm));
+        }
     }
 }
 
@@ -391,7 +396,7 @@ TEST(htslib, DISABLED_bgzf_write_uncompressed)
 
     BGZF *bg_fp = bgzf_open("tmp_write_test.gz", "wu");
     res = bgzf_write(bg_fp, &vec[0], sz * sizeof(int));
-    assert(res == sz * sizeof(int));
+    EXPECT_TRUE(res > 0 && (size_t) (res) == sz * sizeof(int));
     bgzf_close(bg_fp);
 
     BGZF *fp = bgzf_open("tmp_write_test.gz", "ru");
@@ -409,12 +414,12 @@ TEST(htslib, DISABLED_bgzf_write_uncompressed_vs_fwrite)
 
     FILE *bg_fp = fopen("tmp_write_test.gz", "wu");
     res = fwrite(&vec[0], sizeof(int), sz, bg_fp);
-    assert(res == sz);
+    EXPECT_TRUE((res > 0) && ((size_t) res) == sz);
     fclose(bg_fp);
 
     FILE *fp = fopen("tmp_write_test.gz", "ru");
     res = fread(&vec[0], sizeof(int), sz, fp);
-    assert(res == sz);
+    EXPECT_TRUE((res > 0) && ((size_t) res) == sz);
     fclose(fp);
 }
 
@@ -582,7 +587,7 @@ TEST(cpp, bit_fields)
     b.c = 0x4;
     b.d = 0x5;
 
-    uint16_t *p = (uint16_t *) &b;
+    uint16_t *p = (uint16_t *) ((B *) &b);
 
     EXPECT_EQ(p[0], 1);
     EXPECT_EQ(p[1], 2);
@@ -955,25 +960,7 @@ TEST(ibdtools, bgzidx)
     {
         BGZF *fp = bgzf_open(temp_file1, "r");
         assert(0 == bgzf_index_load(fp, temp_file1, ".gzi"));
-
-        // How to
-        /*
-        auto idx = fp->idx;
-        std::cerr << "moffs: " << idx->moffs << " noffs: " << idx->noffs;
-            for (size_t i = 0; i < idx->noffs; i++) {
-
-                std::cerr << " uaddr: " << idx->offs[i].uaddr
-                          << " caddr:" << idx->offs[i].caddr;
-                assert(0 == bgzf_useek(fp, idx->offs[i].uaddr, SEEK_SET));
-                assert(0 == bgzf_read_block(fp));
-                char c;
-                std::cerr << " block_length:" << fp->block_length << '\n';
-                if (1 == bgzf_read(fp, &c, 1))
-                    std::cerr << "after read 1: " << fp->uncompressed_address;
-                if (9 == bgzf_read(fp, &c, 9))
-                    std::cerr << " after read 9" << fp->uncompressed_address << '\n';
-            }
-        */
+        __used(fp);
     }
 }
 

@@ -83,7 +83,7 @@ class IbdSorter
         TournamentTree ttree(K, max_val);
         std::vector<ibd_rec1_t> init_vals;
         init_vals.reserve(K);
-        for (int i = 0; i < K; i++)
+        for (size_t i = 0; i < K; i++)
             init_vals.push_back(get_value(i));
 
         // initial run
@@ -202,9 +202,9 @@ class IbdSorter
             new_chunk.close();
 
             chunks.push_back(std::move(new_chunk));
-            for (int i = 0; i < chunks.size(); i++) {
-                // std::cout << i << " : name: " << chunks[i].get_filename() << '\n';
-            }
+            // for (size_t i = 0; i < chunks.size(); i++) {
+            //      std::cout << i << " : name: " << chunks[i].get_filename() << '\n';
+            // }
             // delete file from the chunk vector and from disk.
             for_each(chunks.begin(), chunks.begin() + kways,
                 [](auto &chunk) { chunk.delete_file_from_disk(); });

@@ -276,7 +276,7 @@ class IbdFile
     write_to_file(size_t max = 0)
     {
         assert(fp != NULL);
-        size_t total_bytes;
+        size_t total_bytes = 0;
         if (max == 0 || max > ibd_vec.size())
             total_bytes = ibd_vec.size() * sizeof(decltype(ibd_vec)::value_type);
         else
@@ -290,6 +290,7 @@ class IbdFile
         // ibd_vec[2].print();
 
         assert(bgzf_write(fp, &ibd_vec[0], total_bytes) == total_bytes);
+        __used(total_bytes);
     }
 
     void
@@ -305,6 +306,7 @@ class IbdFile
         // std::cout << "write to other file: total bytes " << total_bytes << '\n';
 
         assert(bgzf_write(other.fp, &ibd_vec[0], total_bytes) == total_bytes);
+        __used(total_bytes);
     }
 
     // if new_capcity >= current capcity then enlarge the capacity
@@ -312,7 +314,7 @@ class IbdFile
     // @return  true if vector is full; false if vector not full, which
     // indicates end of file
     bool
-    read_from_file(bool append = false, ssize_t new_capacity = 0)
+    read_from_file(bool append = false, size_t new_capacity = 0)
     {
         assert(fp != NULL);
         if (!append)
@@ -333,10 +335,11 @@ class IbdFile
         size_t bytes_capacity = (ibd_vec.capacity() - n_element) * element_size;
 
         ssize_t bytes_read = bgzf_read(fp, &ibd_vec[n_element], bytes_capacity);
-        assert(bytes_read >= 0 && "bgzf_read error");
+        // assert(bytes_read >= 0 && "bgzf_read error");
+        exit_on_false(bytes_read >= 0, "bgzf_read error", __FILE__, __LINE__);
 
         // shrink if fewer bytes are read
-        if (bytes_read < bytes_capacity) {
+        if ((size_t) bytes_read < bytes_capacity) {
             ibd_vec.resize(n_element + bytes_read / element_size);
 
             // std::cout << ibd_vec.size() << "<---  read ibd_vec.size() \n";
@@ -347,6 +350,7 @@ class IbdFile
             // make sure this happens only at end of the file
             char c;
             assert(bgzf_read(fp, &c, 1) == 0 && "bgzf_read read error");
+            __used(c);
             return false;
         }
 
