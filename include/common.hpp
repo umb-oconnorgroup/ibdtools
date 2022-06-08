@@ -693,7 +693,7 @@ struct GziFile {
     {
         vec.clear();
         FILE *fp = fopen(fn, "r");
-        uint64_t sz;
+        uint64_t sz = 0;
         assert(fread(&sz, sizeof(sz), 1, fp) == 1);
         vec.resize(sz);
         assert(fread(&vec[0], sizeof(decltype(vec)::value_type), sz, fp) == sz);

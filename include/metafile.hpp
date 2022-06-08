@@ -54,7 +54,7 @@ class MetaFile
         int32_t *dest = NULL;
         int32_t count = 0;
         while (bcf_read(htsfp, header, rec) == 0) {
-            const int32_t max_ploidy = 2;
+            // const int32_t max_ploidy = 2;
 
             // 1. get positions
             // This took a while to debug but bcftools internally use 0-based, while

@@ -106,7 +106,7 @@ class Positions
         size_t prev_label;
         for (uint32_t i = 0; i < count_per_2cm.size(); ++i) {
 
-            uint32_t label = (count_per_2cm[i] >= min_snp_per_window);
+            uint32_t label = (size_t) (count_per_2cm[i] >= min_snp_per_window);
             if (i == 0) {
                 // first label and start
                 label_vec.push_back({ 0, label });
@@ -122,17 +122,17 @@ class Positions
                         pos_cm_vec.begin(), std::upper_bound(pos_cm_vec.begin(),
                                                 pos_cm_vec.end(), start_cm));
 
-                    //                                       pid_s = 52633
-                    //                                       \
-		    //                                       v
-                    //
-                    // ------x---x-----x---------------------x----x-----------------
-                    //
-                    //   |     keep      |    delete     |    keep       |
-                    //   64              66              68              70
-                    //
-                    //   66 and 68 will map to the pid_s
-                    //
+                    /*                                       pid_s = 52633
+                                                             \
+                                                     v
+
+                       ------x---x-----x---------------------x----x-----------------
+
+                         |     keep      |    delete     |    keep       |
+                         64              66              68              70
+
+                         66 and 68 will map to the pid_s
+                    */
                     // Need to change pid_s for regions maked for deletion
                     if (label == 0)
                         pid_s = pid_s - 1;
