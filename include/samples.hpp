@@ -1,7 +1,6 @@
 #ifndef __samples_hpp__
 #define __samples_hpp__
 
-#include <cassert>
 #include <unordered_map>
 
 #include "common.hpp"
@@ -76,7 +75,7 @@ class Samples
     void
     get_subpop_vector(const char *subpop_fn, std::vector<uint8_t> &subpop_v)
     {
-        assert(subpop_fn != NULL);
+        verify(subpop_fn != NULL);
 
         subpop_v.resize(get_num_samples(), 0);
         std::ifstream ifs(subpop_fn);

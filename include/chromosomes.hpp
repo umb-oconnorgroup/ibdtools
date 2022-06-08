@@ -38,7 +38,7 @@ class Chromosomes
     get_id(const std::string name)
     {
         auto it = std::find(names_vec.begin(), names_vec.end(), name);
-        assert(it != names_vec.end());
+        verify(it != names_vec.end());
         return std::distance(names_vec.begin(), it);
     }
 

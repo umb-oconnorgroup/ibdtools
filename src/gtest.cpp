@@ -400,7 +400,7 @@ TEST(htslib, DISABLED_bgzf_write_uncompressed)
     bgzf_close(bg_fp);
 
     BGZF *fp = bgzf_open("tmp_write_test.gz", "ru");
-    assert(sz * sizeof(int) == bgzf_read(fp, &vec[0], sz * sizeof(int)));
+    verify(sz * sizeof(int) == bgzf_read(fp, &vec[0], sz * sizeof(int)));
     bgzf_close(fp);
 }
 
@@ -954,12 +954,12 @@ TEST(ibdtools, bgzidx)
         BGZF *fp = bgzf_open(temp_file1, "w");
         bgzf_index_build_init(fp);
         meta.write_to_file(fp);
-        assert(0 == bgzf_index_dump(fp, temp_file1, ".gzi"));
+        verify(0 == bgzf_index_dump(fp, temp_file1, ".gzi"));
         bgzf_close(fp);
     }
     {
         BGZF *fp = bgzf_open(temp_file1, "r");
-        assert(0 == bgzf_index_load(fp, temp_file1, ".gzi"));
+        verify(0 == bgzf_index_load(fp, temp_file1, ".gzi"));
         __used(fp);
     }
 }

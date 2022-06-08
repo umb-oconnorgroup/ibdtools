@@ -33,7 +33,7 @@ class GeneticMap
         size_t line_counter = 0;
         while (std::getline(ifs, line, '\n')) {
             if (line_counter < 10) {
-                assert((line.npos == line.find_first_of('\t'))
+                verify((line.npos == line.find_first_of('\t'))
                        && "Error in parsing plink map. Found tab but should use space "
                           "as column delimiter");
             }
@@ -101,7 +101,7 @@ class GeneticMap
     void
     print_range_info(size_t lower_id)
     {
-        assert(lower_id >= 0);
+        verify(lower_id >= 0);
         if (lower_id >= bp_pos_vec.size() - 1) {
             std::cout << std::setprecision(10) << "bp [" << bp_pos_vec.back() << ", Inf)"
                       << " cm [" << cm_pos_vec.back()
@@ -206,7 +206,7 @@ class GeneticMap
     void
     add_final_slope()
     {
-        assert(slope_vec.size() + 1 == bp_pos_vec.size()
+        verify(slope_vec.size() + 1 == bp_pos_vec.size()
                && "The GeneticMap might already have added the final slope");
         // extrapolate the last slope
         slope_vec.push_back(slope_vec.back());

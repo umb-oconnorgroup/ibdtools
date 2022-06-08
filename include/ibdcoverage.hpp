@@ -40,7 +40,7 @@ class IbdCoverage
     {
         // read meta file
         BGZF *fp = bgzf_open(meta_fn, "r");
-        assert(fp != NULL);
+        verify(fp != NULL);
         meta.read_from_file(fp);
         bgzf_close(fp);
 
@@ -71,7 +71,7 @@ class IbdCoverage
             grp.grp_cnt_vec.resize(cm_vec.size(), 0);
         }
 
-        assert(subpop_v.size() == meta.get_samples().get_num_samples()
+        verify(subpop_v.size() == meta.get_samples().get_num_samples()
                || subpop_v.size() == 0);
     }
 
@@ -173,7 +173,7 @@ class IbdCoverage
     write_to_file(const char *ibd_cov_file)
     {
         BGZF *fp = bgzf_open(ibd_cov_file, "w");
-        assert(fp != NULL);
+        verify(fp != NULL);
         bgzf_mt(fp, 10, 256);
         bgzf_index_build_init(fp);
 
@@ -182,7 +182,7 @@ class IbdCoverage
         write_vector_to_file(cm_vec, fp);
         write_vector_to_file(count_vec, fp);
 
-        assert(0 == bgzf_index_dump(fp, ibd_cov_file, ".gzi"));
+        verify(0 == bgzf_index_dump(fp, ibd_cov_file, ".gzi"));
         bgzf_close(fp);
     }
 
@@ -190,11 +190,11 @@ class IbdCoverage
     read_from_file(const char *ibd_cov_file)
     {
         BGZF *fp = bgzf_open(ibd_cov_file, "r");
-        assert(fp != NULL);
+        verify(fp != NULL);
         bgzf_mt(fp, 10, 256);
         std::string gzi = ibd_cov_file;
         if (std::filesystem::exists(gzi + ".gzi")) {
-            assert(0 == bgzf_index_load(fp, ibd_cov_file, ".gzi"));
+            verify(0 == bgzf_index_load(fp, ibd_cov_file, ".gzi"));
         }
 
         read_element_from_file(window_in_cM, fp);

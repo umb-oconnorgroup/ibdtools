@@ -42,7 +42,7 @@ class IbdMerger
         //
         // read meta
         BGZF *fp = bgzf_open(meta_fn, "r");
-        assert(fp != NULL);
+        verify(fp != NULL);
         meta.read_from_file(fp);
         bgzf_close(fp);
 
@@ -94,12 +94,12 @@ class IbdMerger
         // size_t id_o = id;
 
         auto &vec = in.get_vec();
-        assert(id >= 0 && id < vec.size());
+        verify(id >= 0 && id < vec.size());
 
         // if the same as the one above, move above
         while (id != 0 && vec[id - 1].is_same_pair(vec[id]))
             id--;
-        assert(id >= 0 && id < vec.size());
+        verify(id >= 0 && id < vec.size());
 
         // std::cout << "id in: " << id_o;
         // std::cout << " id out: " << id << '\n';
@@ -161,7 +161,7 @@ class IbdMerger
             d = c >> 2;
             c &= 0b11;
 
-            assert(a <= 1 && b <= 1 && c <= 1 && d <= 1);
+            verify(a <= 1 && b <= 1 && c <= 1 && d <= 1);
 
             // sample1 is homozgyote and sample 2 is homozygote but their genotype is
             // different, then add 1;

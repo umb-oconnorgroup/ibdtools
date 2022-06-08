@@ -107,7 +107,7 @@ class IbdSorter
 
             // new_chunk_out_vec.back().print();
             // if (new_chunk_out_vec.size() > 5)
-            //     assert(new_chunk_out_vec[new_chunk_out_vec.size() - 4]
+            //     verify(new_chunk_out_vec[new_chunk_out_vec.size() - 4]
             //                < new_chunk_out_vec[new_chunk_out_vec.size() - 3]
             //            || new_chunk_out_vec[new_chunk_out_vec.size() - 4]
             //                   == new_chunk_out_vec[new_chunk_out_vec.size() - 3]);

@@ -55,34 +55,34 @@ class IbdFile
     {
         fp = bgzf_open(filename.c_str(), mode);
 
-        assert(fp != NULL && "bgzf_open failed ");
+        verify(fp != NULL && "bgzf_open failed ");
         if (!(fp->is_write)) {
             // std::cout << "ibd_file open file for reading \n";
-            assert(fp != NULL && "bgzf_open failed to open ibd out file");
+            verify(fp != NULL && "bgzf_open failed to open ibd out file");
             bgzf_mt(fp, 10, 256);
             std::string gzi(filename);
             gzi += ".gzi";
             if (std::filesystem::exists(gzi) && fp->is_compressed) {
-                assert(bgzf_index_load(fp, filename.c_str(), ".gzi") == 0
+                verify(bgzf_index_load(fp, filename.c_str(), ".gzi") == 0
                        && "bgzf_index_load error");
             }
         } else {
-            assert(fp != NULL && "bgzf_open failed to open ibd out file");
+            verify(fp != NULL && "bgzf_open failed to open ibd out file");
             bgzf_mt(fp, 10, 256);
-            assert(bgzf_index_build_init(fp) == 0);
+            verify(bgzf_index_build_init(fp) == 0);
         }
     }
 
     void
     close()
     {
-        assert(fp != NULL);
+        verify(fp != NULL);
         if (!(fp->is_write)) {
             bgzf_close(fp);
             // std::cout << "ibdfile closed for reading\n";
         } else {
             if (fp->is_compressed && filename != "/dev/null")
-                assert(bgzf_index_dump(fp, filename.c_str(), ".gzi") == 0);
+                verify(bgzf_index_dump(fp, filename.c_str(), ".gzi") == 0);
             bgzf_close(fp);
             // std::cout << "ibdfile closed for reading\n";
         }
@@ -93,10 +93,10 @@ class IbdFile
     from_raw_ibd(const char *raw_ibd_in, int col_sample1 = 0, int col_sample2 = 2,
         int col_start = 5, int col_end = 6, int col_hap1 = 1, int col_hap2 = 3)
     {
-        assert(fp != NULL);
-        assert(meta != NULL && "encode need meta");
+        verify(fp != NULL);
+        verify(meta != NULL && "encode need meta");
         // check args
-        assert(col_sample1 < col_sample2 < col_start < col_end);
+        verify(col_sample1 < col_sample2 < col_start < col_end);
 
         // references
         auto samples = meta->get_samples();
@@ -107,7 +107,7 @@ class IbdFile
 
         // open file
         BGZF *fp_in = bgzf_open(raw_ibd_in, "r");
-        assert(fp_in != NULL && "bgzf_open failed to open ibd in file");
+        verify(fp_in != NULL && "bgzf_open failed to open ibd in file");
 
         // threading
         bgzf_mt(fp_in, 10, 256);
@@ -177,8 +177,8 @@ class IbdFile
     to_raw_ibd(const char *raw_ibd_fn, size_t line_buffer_capcity = 10 * 1024 * 1024,
         const char *subpop_fn = NULL)
     {
-        assert(fp != NULL);
-        assert(meta != NULL && "decode need meta");
+        verify(fp != NULL);
+        verify(meta != NULL && "decode need meta");
         // references
         auto samples = meta->get_samples();
         auto positions = meta->get_positions();
@@ -190,9 +190,9 @@ class IbdFile
 
         // open file
         BGZF *fp_out = bgzf_open(raw_ibd_fn, "w");
-        assert(fp_out != NULL && "bgzf_open failed to open ibd out file");
+        verify(fp_out != NULL && "bgzf_open failed to open ibd out file");
 
-        assert(bgzf_index_build_init(fp_out) == 0);
+        verify(bgzf_index_build_init(fp_out) == 0);
 
         // threading
         bgzf_mt(fp_out, 10, 256);
@@ -224,7 +224,7 @@ class IbdFile
             for (auto &rec : ibd_vec) {
                 //  write to out file when line_buffer is almost full
                 if (line_buffer.size() > line_buffer.capacity() - 1000) {
-                    assert(
+                    verify(
                         bgzf_write(fp_out, line_buffer.c_str(), line_buffer.size())
                             == line_buffer.size()
                         && "bgzf_write error during writting ibd_rec during decoding");
@@ -261,21 +261,21 @@ class IbdFile
 
         // flush the line_buffer
         if (line_buffer.size() > 0) {
-            assert(bgzf_write(fp_out, line_buffer.c_str(), line_buffer.size())
+            verify(bgzf_write(fp_out, line_buffer.c_str(), line_buffer.size())
                        == line_buffer.size()
                    && "bgzf_write error during writting ibd_rec during decoding");
             line_buffer.clear();
         }
 
         // close file and dump index
-        assert(bgzf_index_dump(fp_out, raw_ibd_fn, ".gzi") == 0);
+        verify(bgzf_index_dump(fp_out, raw_ibd_fn, ".gzi") == 0);
         bgzf_close(fp_out);
     }
 
     void
     write_to_file(size_t max = 0)
     {
-        assert(fp != NULL);
+        verify(fp != NULL);
         size_t total_bytes = 0;
         if (max == 0 || max > ibd_vec.size())
             total_bytes = ibd_vec.size() * sizeof(decltype(ibd_vec)::value_type);
@@ -289,14 +289,14 @@ class IbdFile
         // ibd_vec[1].print();
         // ibd_vec[2].print();
 
-        assert(bgzf_write(fp, &ibd_vec[0], total_bytes) == total_bytes);
+        verify(bgzf_write(fp, &ibd_vec[0], total_bytes) == total_bytes);
         __used(total_bytes);
     }
 
     void
     write_to_file(IbdFile &other, size_t max = 0)
     {
-        assert(other.get_fp() != NULL);
+        verify(other.get_fp() != NULL);
         size_t total_bytes;
         if (max == 0 || max > ibd_vec.size())
             total_bytes = ibd_vec.size() * sizeof(decltype(ibd_vec)::value_type);
@@ -305,7 +305,7 @@ class IbdFile
 
         // std::cout << "write to other file: total bytes " << total_bytes << '\n';
 
-        assert(bgzf_write(other.fp, &ibd_vec[0], total_bytes) == total_bytes);
+        verify(bgzf_write(other.fp, &ibd_vec[0], total_bytes) == total_bytes);
         __used(total_bytes);
     }
 
@@ -316,7 +316,7 @@ class IbdFile
     bool
     read_from_file(bool append = false, size_t new_capacity = 0)
     {
-        assert(fp != NULL);
+        verify(fp != NULL);
         if (!append)
             ibd_vec.clear();
 
@@ -335,7 +335,7 @@ class IbdFile
         size_t bytes_capacity = (ibd_vec.capacity() - n_element) * element_size;
 
         ssize_t bytes_read = bgzf_read(fp, &ibd_vec[n_element], bytes_capacity);
-        // assert(bytes_read >= 0 && "bgzf_read error");
+        // verify(bytes_read >= 0 && "bgzf_read error");
         exit_on_false(bytes_read >= 0, "bgzf_read error", __FILE__, __LINE__);
 
         // shrink if fewer bytes are read
@@ -349,7 +349,7 @@ class IbdFile
 
             // make sure this happens only at end of the file
             char c;
-            assert(bgzf_read(fp, &c, 1) == 0 && "bgzf_read read error");
+            verify(bgzf_read(fp, &c, 1) == 0 && "bgzf_read read error");
             __used(c);
             return false;
         }
