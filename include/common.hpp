@@ -425,7 +425,7 @@ struct __attribute__((packed)) ibd_rec1_t {
     operator==(const ibd_rec1_t &rec1, const ibd_rec1_t &rec2)
     {
         return (*((uint64_t *) &rec1) == *((uint64_t *) &rec2))
-               && ((uint16_t *) &rec1)[4] == ((uint16_t *) &rec1)[4];
+               && ((uint16_t *) &rec1)[4] == ((uint16_t *) &rec2)[4];
     }
 
     // for debug
