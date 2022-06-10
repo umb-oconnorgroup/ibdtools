@@ -168,7 +168,7 @@ class IbdMatrix
                     pid1 = rec.get_pid1();
                     pid2 = rec.get_pid2();
                     cM = pos.get_cm(pid2) - pos.get_cm(pid1);
-                    if (cM < min_cM || cM > max_cM)
+                    if (cM < min_cM || cM >= max_cM)
                         continue;
                     at(row, col) += lround(cM * 10);
                 }
@@ -186,7 +186,7 @@ class IbdMatrix
                     pid1 = rec.get_pid1();
                     pid2 = rec.get_pid2();
                     cM = pos.get_cm(pid2) - pos.get_cm(pid1);
-                    if (cM < min_cM)
+                    if (cM < min_cM || cM >= max_cM)
                         continue;
                     at(row, col) += lround(cM * 10);
                 }
