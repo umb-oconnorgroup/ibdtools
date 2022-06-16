@@ -965,7 +965,6 @@ TEST(ibdtools, bgzidx)
         BGZF *fp = bgzf_open(temp_file1, "r");
         auto res = bgzf_index_load(fp, temp_file1, ".gzi");
         exit_on_false(res == 0, "", __FILE__, __LINE__);
-        __used(fp);
     }
 }
 

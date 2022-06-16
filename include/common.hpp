@@ -25,9 +25,6 @@
 #include <unordered_map>
 #include <vector>
 
-// Avoiding unused variables warnings when using assert()
-#define __used(x) ((void) (x))
-
 // from htslib bgzf.c
 typedef struct {
     uint64_t uaddr; // offset w.r.t. uncompressed data
