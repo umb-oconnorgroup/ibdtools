@@ -17,13 +17,17 @@ fmt_dep = dependency('fmt')
 
 htslib_dep = dependency('htslib')
 
+cpps = ['src/common.cpp', 'src/scopedtimer.cpp', 'src/io.cpp', 'src/svsplitter.cpp', 'src/tournamenttree.cpp' ]
+ibdtools_cpp = ['src/ibdtools.cpp'] + cpps
+tests_cpp= ['src/gtest.cpp'] + cpps
+
 # ibdtools
 ibdtools_dep = [my_dep, cxxopts_dep, fmt_dep, htslib_dep]
-executable('ibdtools', git_version_h, ['src/ibdtools.cpp', 'src/common.cpp'], dependencies: ibdtools_dep)
+executable('ibdtools', git_version_h, ibdtools_cpp, dependencies: ibdtools_dep)
 
 # tests
 gtest_dep = dependency('gtest')
 tests_dep = [gtest_dep, my_dep, fmt_dep, htslib_dep]
-executable('tests', ['src/gtest.cpp', 'src/common.cpp'], dependencies: tests_dep)
+executable('tests', tests_cpp, dependencies: tests_dep)
 
 
