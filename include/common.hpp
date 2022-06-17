@@ -562,7 +562,7 @@ void
 write_vector_to_file(std::vector<T> &v, BGZF *fp)
 {
     if constexpr (std::is_same_v<T, std::string>) {
-        size_t total_bytes = 0;
+        uint64_t total_bytes = 0;
         bool condition = false;
         std::string buffer_str;
         ssize_t ret = 0;
@@ -597,7 +597,7 @@ write_vector_to_file(std::vector<T> &v, BGZF *fp)
             T> || std::is_same_v<T, ibd_rec1_t> || std::is_same_v<T, ibd_rec2_t>) {
         // write size info
         ssize_t ret = 0;
-        size_t total_bytes = v.size() * sizeof(T);
+        uint64_t total_bytes = v.size() * sizeof(T);
         bool condition = false;
 
         ret = bgzf_write(fp, &total_bytes, sizeof(total_bytes));
@@ -621,7 +621,7 @@ void
 read_vector_from_file(std::vector<T> &v, BGZF *fp)
 {
     if constexpr (std::is_same_v<T, std::string>) {
-        size_t total_bytes = 0;
+        uint64_t total_bytes = 0;
         ssize_t ret = 0;
         std::string buffer_str;
 
@@ -650,7 +650,7 @@ read_vector_from_file(std::vector<T> &v, BGZF *fp)
     } else if constexpr (
         std::is_arithmetic_v<
             T> || std::is_same_v<T, ibd_rec1_t> || std::is_same_v<T, ibd_rec2_t>) {
-        size_t total_bytes = 0;
+        uint64_t total_bytes = 0;
         size_t vector_sz = 0;
         ssize_t ret = 0;
 
