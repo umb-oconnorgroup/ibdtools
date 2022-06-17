@@ -70,8 +70,9 @@ IbdFile::close()
         // std::cout << "ibdfile closed for reading\n";
     } else {
         // IbdFile object represent an packed IBD file
-        exit_on_false(bgzf_index_dump(fp, filename.c_str(), ".gzi") == 0,
-            "bgzf_index_dump error", __FILE__, __LINE__);
+        if (fp->is_compressed && filename != "/dev/null")
+            exit_on_false(bgzf_index_dump(fp, filename.c_str(), ".gzi") == 0,
+                "bgzf_index_dump error", __FILE__, __LINE__);
         bgzf_close(fp);
         // std::cout << "ibdfile closed for reading\n";
     }
