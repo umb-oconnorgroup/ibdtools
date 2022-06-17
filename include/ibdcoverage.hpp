@@ -2,6 +2,7 @@
 #define __ibdcoverage_hpp__
 #include "common.hpp"
 #include "ibdfile.hpp"
+#include "metafile.hpp"
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
