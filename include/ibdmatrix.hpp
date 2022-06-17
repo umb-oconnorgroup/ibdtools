@@ -12,9 +12,23 @@ class IbdMatrix
     std::vector<uint16_t> cm10x_vec; // convert float to int16_t by round(10xcM);
     uint32_t d; // d = nsam if is not hap_pair matrix; otherwise d = 2 * nsam;
     uint8_t is_hap_pair_m;
+    std::vector<uint32_t> subpop_ids;
 
   public:
     IbdMatrix() {}
+
+    /*Construct mat from a vector*/
+    IbdMatrix(std::vector<uint16_t> &in_cm10x_vec, uint8_t in_is_hap_pair)
+    {
+        size_t array_size = in_cm10x_vec.size();
+        // d^2 - d  = 2 *s;
+        // d = sqrt(2 * s + 0.25) + 0.5
+        this->d = (uint32_t) (sqrt(2 * array_size + 0.25) + 0.5);
+        this->is_hap_pair_m = in_is_hap_pair;
+        cm10x_vec.reserve(array_size);
+        std::copy(
+            in_cm10x_vec.begin(), in_cm10x_vec.end(), std::back_inserter(cm10x_vec));
+    }
 
     // Lower trangular  row > col;
     //  -  -  -  -  -
@@ -56,7 +70,7 @@ class IbdMatrix
         // sqrt(2*y + 0.25) + 0.5 >= r >= sqrt(2*y + 2.25) - 0.5
         //
 
-        row = sqrtl(2 * arr_index + 0.25) + 0.5;
+        row = sqrt(2 * arr_index + 0.25) + 0.5;
 
         // overflow if uint32_t * uint32_t. Need to convert to size_t
         // col = arr_index -  row * (row - 1) / 2;
@@ -92,6 +106,7 @@ class IbdMatrix
 
         read_element_from_file(is_hap_pair_m, fp);
         read_element_from_file(d, fp);
+        read_vector_from_file(this->subpop_ids, fp);
         read_vector_from_file(cm10x_vec, fp);
         exit_on_false(get_array_size() == cm10x_vec.size(), "", __FILE__, __LINE__);
 
@@ -105,12 +120,12 @@ class IbdMatrix
         exit_on_false(fp != NULL, "", __FILE__, __LINE__);
 
         bgzf_mt(fp, 10, 256);
-
         bgzf_index_build_init(fp);
-
         exit_on_false(get_array_size() == cm10x_vec.size(), "", __FILE__, __LINE__);
+
         write_element_to_file(is_hap_pair_m, fp);
         write_element_to_file(d, fp);
+        write_vector_to_file(this->subpop_ids, fp);
         write_vector_to_file(cm10x_vec, fp);
 
         exit_on_false(
@@ -234,6 +249,45 @@ class IbdMatrix
             }
     }
 
+    void
+    subset_matrix(const std::vector<uint32_t> &in_subpop_ids)
+    {
+        // copy args to member variable
+        this->subpop_ids.reserve(in_subpop_ids.size());
+        std::copy(in_subpop_ids.begin(), in_subpop_ids.end(),
+            std::back_inserter(this->subpop_ids));
+
+        // sort member variable
+        std::sort(this->subpop_ids.begin(), this->subpop_ids.end());
+
+        // validate subpop_ids
+        auto new_d = this->subpop_ids.size();
+        auto new_array_size = (new_d - 1) * new_d / 2;
+        bool has_repeat
+            = std::adjacent_find(this->subpop_ids.begin(), this->subpop_ids.end())
+              != this->subpop_ids.end();
+        bool too_large = this->subpop_ids.back() >= d;
+        exit_on_false(!has_repeat, "subpop_ids has repeated ids", __FILE__, __LINE__);
+        exit_on_false(!too_large, "subpop_ids id out of range", __FILE__, __LINE__);
+
+        // consolidate the matrix
+        for (size_t i = 0; i < new_array_size; i++) {
+            // get row, col index in new array
+            size_t row = sqrt(2 * i + 0.25) + 0.5;
+            size_t col = i - row * (row - 1) / 2;
+            // get row, col index in old array
+            size_t row_old = this->subpop_ids[row];
+            size_t col_old = this->subpop_ids[col];
+            // copy
+            this->at(row, col) = this->at(row_old, col_old);
+        }
+
+        // update d and shrink array
+        this->d = new_d;
+        this->cm10x_vec.resize(new_array_size);
+        this->cm10x_vec.shrink_to_fit();
+    }
+
     // keep any element x if low <= x < upper and set other element to 0
     void
     filter_matrix(uint16_t low, uint16_t upper)
@@ -253,14 +307,22 @@ class IbdMatrix
         exit_on_false(
             0 <= c_first && c_first < c_last && c_last < d, "", __FILE__, __LINE__);
 
-        for (uint32_t row = r_first; row < r_last; row++) {
-            for (uint32_t col = c_first; col < c_last; col++) {
+        for (uint32_t row = r_first; row <= r_last; row++) {
+            for (uint32_t col = c_first; col <= c_last; col++) {
                 if (row <= col)
                     os << "--\t";
                 else
                     os << at(row, col) / 10.0 << '\t';
             }
             os << '\n';
+        }
+    }
+
+    void
+    print_subpop_ids_to_ostream(std::ostream &os)
+    {
+        for (auto id : this->subpop_ids) {
+            os << id << '\n';
         }
     }
 };

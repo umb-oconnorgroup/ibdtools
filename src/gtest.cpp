@@ -860,6 +860,46 @@ TEST(ibdtools, IbdMatrix)
         EXPECT_EQ(mat_hap.at((row << 1) + 1, (col << 1) + 1), total_hap[3]);
     }
 }
+TEST(ibdtools, IbdMatrix_subset_matrix)
+{
+    /*
+     *    - - - - -
+     *    0 - - - -
+     *    1 2 - - -
+     *    3 4 5 - -
+     *    6 7 8 9 -
+     */
+    std::vector<uint16_t> arr = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+    std::vector<uint32_t> subpop_ids1 = { 1, 2 };
+    std::vector<uint32_t> subpop_ids2 = { 0, 2 };
+    std::vector<uint32_t> subpop_ids3 = { 0, 3 };
+    std::vector<uint32_t> subpop_ids4 = { 1, 2, 4 };
+    std::vector<uint32_t> subpop_ids5 = { 2, 3, 4 };
+    IbdMatrix mat1(arr, 0);
+    IbdMatrix mat2(arr, 0);
+    IbdMatrix mat3(arr, 0);
+    IbdMatrix mat4(arr, 0);
+    IbdMatrix mat5(arr, 0);
+    mat1.subset_matrix(subpop_ids1);
+    mat2.subset_matrix(subpop_ids2);
+    mat3.subset_matrix(subpop_ids3);
+    mat4.subset_matrix(subpop_ids4);
+    mat5.subset_matrix(subpop_ids5);
+    EXPECT_EQ(mat1.at(0), 2);
+    EXPECT_EQ(mat1.get_num_samples(), 2);
+    EXPECT_EQ(mat2.at(0), 1);
+    EXPECT_EQ(mat3.get_num_samples(), 2);
+    EXPECT_EQ(mat3.at(0), 3);
+    EXPECT_EQ(mat2.get_num_samples(), 2);
+    EXPECT_EQ(mat4.at(0), 2);
+    EXPECT_EQ(mat4.at(1), 7);
+    EXPECT_EQ(mat4.at(2), 8);
+    EXPECT_EQ(mat4.get_num_samples(), 3);
+    EXPECT_EQ(mat5.at(0), 5);
+    EXPECT_EQ(mat5.at(1), 8);
+    EXPECT_EQ(mat5.at(2), 9);
+    EXPECT_EQ(mat5.get_num_samples(), 3);
+}
 
 TEST(ibdtools, IbdCoverage_run_thru)
 {
