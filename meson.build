@@ -18,7 +18,7 @@ fmt_dep = dependency('fmt')
 htslib_dep = dependency('htslib')
 
 cpps = ['src/common.cpp', 'src/scopedtimer.cpp', 'src/io.cpp', 'src/svsplitter.cpp', 'src/tournamenttree.cpp',
-  'src/ibdfile.cpp', 'src/chromosomes.cpp', 'src/genotypes.cpp',
+  'src/ibdfile.cpp', 'src/chromosomes.cpp', 'src/genotypes.cpp', 'src/positions.cpp'
   ]
 ibdtools_cpp = ['src/ibdtools.cpp'] + cpps
 tests_cpp= ['src/gtest.cpp'] + cpps
