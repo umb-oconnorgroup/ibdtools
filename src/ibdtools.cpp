@@ -659,19 +659,40 @@ ibdtools_matrix_main(int argc, char *argv[])
             cerr << "add matrix: " << matrices_in[i] << '\n';
         }
     }
-
-    // filter
+    // filter by total ibd length
     filt_lower_cm10x = 10 * filt_lower_cm;
     filt_upper_cm10x = 10 * filt_upper_cm;
     exit_on_false(filt_lower_cm10x < filt_upper_cm10x, "", __FILE__, __LINE__);
     string mat_fn;
     if (filt_lower_cm10x != 0 || filt_upper_cm10x != filt_max) {
         mat.filter_matrix(filt_lower_cm10x, filt_upper_cm10x);
+
         mat_fn = out_prefix + "_" + to_string(filt_lower_cm) + "_"
                  + to_string(filt_upper_cm) + ".mat";
     } else {
         mat_fn = out_prefix + ".mat";
     }
+
+    // filter by subpop sample list
+    if (subpop_fn != "(None)") {
+        // read  sample list and convert to id vector
+        std::vector<uint32_t> subpop_ids;
+        std::ifstream ifs(subpop_fn);
+        std::string line;
+        auto &samples = meta.get_samples();
+        while (getline(ifs, line, '\n')) {
+            if (!samples.is_name_valid(line)) {
+                std::cerr << "Error: Sample name "
+                          << "`" << line << "` is invalid\n";
+                exit(-1);
+            }
+            auto sid = samples.get_id(line);
+            subpop_ids.push_back(sid);
+        }
+        // subsetting
+        mat.subset_matrix(subpop_ids);
+    }
+
     // save mat file
     mat.write_matrix_file(mat_fn.c_str());
 

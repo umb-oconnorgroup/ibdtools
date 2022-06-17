@@ -252,6 +252,14 @@ class IbdMatrix
     void
     subset_matrix(const std::vector<uint32_t> &in_subpop_ids)
     {
+        // check if already subsetted
+        bool not_subsetted = this->subpop_ids.size() == 0;
+        bool input_equal_to_member = this->subpop_ids == in_subpop_ids;
+        bool is_valid = (not_subsetted || input_equal_to_member);
+        exit_on_false(is_valid,
+            "Error: subsetting already performed; new subsetting not allowed", __FILE__,
+            __LINE__);
+
         // copy args to member variable
         this->subpop_ids.reserve(in_subpop_ids.size());
         std::copy(in_subpop_ids.begin(), in_subpop_ids.end(),
@@ -263,10 +271,13 @@ class IbdMatrix
         // validate subpop_ids
         auto new_d = this->subpop_ids.size();
         auto new_array_size = (new_d - 1) * new_d / 2;
+        bool new_d_lt2 = new_d < 2;
         bool has_repeat
             = std::adjacent_find(this->subpop_ids.begin(), this->subpop_ids.end())
               != this->subpop_ids.end();
         bool too_large = this->subpop_ids.back() >= d;
+        exit_on_false(!new_d_lt2, "subpop_ids should be at least 2", __FILE__, __LINE__);
+        exit_on_false(!has_repeat, "subpop_ids has repeated ids", __FILE__, __LINE__);
         exit_on_false(!has_repeat, "subpop_ids has repeated ids", __FILE__, __LINE__);
         exit_on_false(!too_large, "subpop_ids id out of range", __FILE__, __LINE__);
 

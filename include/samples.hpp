@@ -27,6 +27,12 @@ class Samples
         return names_vec[sid];
     }
 
+    bool
+    is_name_valid(const std::string name)
+    {
+        return name2id_map.find(name) != name2id_map.end();
+    }
+
     uint32_t
     get_id(const std::string name)
     {
