@@ -1,9 +1,13 @@
 
 #include "ibdstat.hpp"
+#include "chromosomes.hpp"
 #include "common.hpp"
+#include "genotypes.hpp"
+#include "gmap.hpp"
 #include "ibdfile.hpp"
 #include "metafile.hpp"
 #include "positions.hpp"
+#include "samples.hpp"
 #include <algorithm>
 
 IbdStat::IbdStat(

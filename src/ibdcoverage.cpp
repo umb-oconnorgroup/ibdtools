@@ -1,12 +1,13 @@
 
 #include "ibdcoverage.hpp"
-#include "common.hpp"
+#include "chromosomes.hpp"
+#include "genotypes.hpp"
+#include "gmap.hpp"
 #include "ibdfile.hpp"
 #include "metafile.hpp"
-#include <cstdint>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
+#include "positions.hpp"
+#include "samples.hpp"
+IbdCoverage::IbdCoverage() {}
 
 IbdCoverage::IbdCoverage(const char *ibd_fn, const char *meta_fn, float win_in_cM,
     size_t max_rec_ram, const char *subpop_fn)
@@ -15,18 +16,19 @@ IbdCoverage::IbdCoverage(const char *ibd_fn, const char *meta_fn, float win_in_c
     // read meta file
     BGZF *fp = bgzf_open(meta_fn, "r");
     exit_on_false(fp != NULL, "", __FILE__, __LINE__);
-    meta.read_from_file(fp);
+    meta = std::make_unique<MetaFile>();
+    meta->read_from_file(fp);
     bgzf_close(fp);
 
     // parse subpop
     if (subpop_fn != NULL)
-        meta.get_samples().get_subpop_vector(subpop_fn, subpop_v);
+        meta->get_samples().get_subpop_vector(subpop_fn, subpop_v);
 
     // prepare ibdfile object
-    in = IbdFile(ibd_fn, &meta, max_rec_ram);
+    in = std::make_unique<IbdFile>(ibd_fn, meta.get(), max_rec_ram);
 
     // prepare cm_vec
-    auto &pos = meta.get_positions();
+    auto &pos = meta->get_positions();
     float max_cM = pos.get_cm(pos.get_size() - 1);
     size_t num_win = max_cM / win_in_cM + 1;
     cm_vec.reserve(num_win);
@@ -46,7 +48,7 @@ IbdCoverage::IbdCoverage(const char *ibd_fn, const char *meta_fn, float win_in_c
     }
 
     exit_on_false(
-        subpop_v.size() == meta.get_samples().get_num_samples() || subpop_v.size() == 0,
+        subpop_v.size() == meta->get_samples().get_num_samples() || subpop_v.size() == 0,
         "", __FILE__, __LINE__);
 }
 
@@ -57,12 +59,12 @@ IbdCoverage::IbdCoverage(const char *ibd_fn, const char *meta_fn, float win_in_c
 void
 IbdCoverage::calculate_coverage()
 {
-    in.open("r");
-    auto &vec = in.get_vec();
+    in->open("r");
+    auto &vec = in->get_vec();
     bool read_full;
     do {
         // read ibd into memory
-        read_full = in.read_from_file();
+        read_full = in->read_from_file();
 
         // divide into groups for parallelizating
         divide_to_groups();
@@ -87,13 +89,13 @@ IbdCoverage::calculate_coverage()
 
     } while (read_full);
 
-    in.close();
+    in->close();
 }
 
 void
 IbdCoverage::divide_to_groups()
 {
-    auto &vec = in.get_vec();
+    auto &vec = in->get_vec();
     size_t step = vec.size() / max_groups;
 
     for (size_t i = 0; i < max_groups; i++) {
@@ -116,7 +118,7 @@ IbdCoverage::calculate_grp_coverage(group_t &grp)
     grp.grp_cnt_vec.clear();
     grp.grp_cnt_vec.resize(cm_vec.size(), 0);
 
-    auto &pos = meta.get_positions();
+    auto &pos = meta->get_positions();
 
     for (Iter it = grp.first; it < grp.last; it++) {
 
@@ -201,7 +203,7 @@ IbdCoverage::print_group_state()
 {
     std::cout << "Group state: \n";
     for (auto &grp : grps_vec) {
-        std::cout << std::distance(in.get_vec().begin(), grp.first) << ", "
-                  << std::distance(in.get_vec().begin(), grp.last) << '\n';
+        std::cout << std::distance(in->get_vec().begin(), grp.first) << ", "
+                  << std::distance(in->get_vec().begin(), grp.last) << '\n';
     }
 }

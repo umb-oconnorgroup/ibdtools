@@ -1,24 +1,20 @@
-#include "../include/common.hpp"
-#include "../include/ibdcoverage.hpp"
-#include "../include/ibdfile.hpp"
-#include "../include/ibdmatrix.hpp"
-#include "../include/ibdmerger.hpp"
-#include "../include/ibdsorter.hpp"
-#include "../include/ibdspliter.hpp"
-#include "../include/ibdstat.hpp"
-#include "../include/metafile.hpp"
+#include "chromosomes.hpp"
 #include "cxxopts.hpp"
+#include "genotypes.hpp"
 #include "git_version.h"
-#include "htslib/bgzf.h"
-#include <algorithm>
-#include <cctype>
-#include <cstdint>
+#include "gmap.hpp"
+#include "ibdcoverage.hpp"
+#include "ibdmatrix.hpp"
+#include "ibdmerger.hpp"
+#include "ibdsorter.hpp"
+#include "ibdspliter.hpp"
+#include "ibdstat.hpp"
+#include "metafile.hpp"
+#include "positions.hpp"
+#include "samples.hpp"
 #include <fmt/core.h>
 #include <fstream>
-#include <iostream>
-#include <limits>
-#include <numeric>
-#include <sys/types.h>
+#include <sstream>
 
 using namespace std;
 using namespace cxxopts;

@@ -12,6 +12,16 @@
 #include "positions.hpp"
 #include "samples.hpp"
 
+MetaFile::MetaFile()
+{
+    // default
+    genotypes = std::make_unique<Genotypes>();
+    chromosomes = std::make_unique<Chromosomes>();
+    positions = std::make_unique<Positions>();
+    gmap = std::make_unique<GeneticMap>();
+    samples = std::make_unique<Samples>();
+}
+
 void
 MetaFile::parse_files(
     const char *vcf_fn, const char *gmap_fn, bool parse_genotype, std::string chr_name)
@@ -26,14 +36,16 @@ MetaFile::parse_files(
     exit_on_false(header != NULL, "Cannot read vcf header", __FILE__, __LINE__);
     auto nsam = header->n[BCF_DT_SAMPLE];
 
-    genotypes = Genotypes(nsam);
-    chromosomes.add(chr_name, 0, 0);
-    positions = Positions(chromosomes.get_id(chr_name));
-    gmap = GeneticMap(-1, gmap_fn);
+    genotypes = std::make_unique<Genotypes>(nsam);
+    chromosomes = std::make_unique<Chromosomes>();
+    chromosomes->add(chr_name, 0, 0);
+    positions = std::make_unique<Positions>(chromosomes->get_id(chr_name));
+    gmap = std::make_unique<GeneticMap>((int) -1, gmap_fn);
+    samples = std::make_unique<Samples>();
 
     // add names to the Samples object
     for (int32_t i = 0; i < nsam; i++)
-        samples.add(header->id[BCF_DT_SAMPLE][i].key);
+        samples->add(header->id[BCF_DT_SAMPLE][i].key);
 
     bcf1_t *rec = bcf_init();
     exit_on_false(rec != NULL, "Cannot initialize bcf record", __FILE__, __LINE__);
@@ -51,7 +63,7 @@ MetaFile::parse_files(
 
         // some vcf file have duplicated variants for a given position; Only the
         // first variant at this position is considered for genotype information
-        bool success = positions.add(bp_pos, gmap.get_cm(bp_pos));
+        bool success = positions->add(bp_pos, gmap->get_cm(bp_pos));
 
         if (parse_genotype && success) {
             // 2. get an array of alleles
@@ -71,7 +83,7 @@ MetaFile::parse_files(
                 if (bcf_gt_is_missing(dest[i + 1]))
                     allele[1] = 2;
 
-                genotypes.add(allele[0] | (allele[1] << 2));
+                genotypes->add(allele[0] | (allele[1] << 2));
             }
         }
     }
@@ -86,11 +98,11 @@ MetaFile::parse_files(
 void
 MetaFile::write_to_file(BGZF *fp)
 {
-    chromosomes.write_to_file(fp);
-    gmap.write_to_file(fp);
-    samples.write_to_file(fp);
-    positions.write_to_file(fp);
-    genotypes.write_to_file(fp);
+    chromosomes->write_to_file(fp);
+    gmap->write_to_file(fp);
+    samples->write_to_file(fp);
+    positions->write_to_file(fp);
+    genotypes->write_to_file(fp);
 }
 
 bool
@@ -106,18 +118,18 @@ MetaFile::is_equal(MetaFile &other)
 void
 MetaFile::read_from_file(BGZF *fp, bool read_genotype)
 {
-    chromosomes.read_from_file(fp);
-    gmap.read_from_file(fp);
-    samples.read_from_file(fp);
-    positions.read_from_file(fp);
+    chromosomes->read_from_file(fp);
+    gmap->read_from_file(fp);
+    samples->read_from_file(fp);
+    positions->read_from_file(fp);
     if (read_genotype)
-        genotypes.read_from_file(fp);
+        genotypes->read_from_file(fp);
 }
 
 void
 MetaFile::print()
 {
-    samples.print();
-    positions.print();
-    genotypes.print();
+    samples->print();
+    positions->print();
+    genotypes->print();
 }

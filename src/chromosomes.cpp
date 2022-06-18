@@ -1,5 +1,5 @@
 #include "chromosomes.hpp"
-#include "common.hpp"
+#include <string>
 
 void
 Chromosomes::add(std::string name, uint32_t bp_length, float cM_length)

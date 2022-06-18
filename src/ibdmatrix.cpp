@@ -4,6 +4,7 @@
 #include "ibdfile.hpp"
 #include "metafile.hpp"
 #include "positions.hpp"
+#include "samples.hpp"
 #include <filesystem>
 #include <iostream>
 

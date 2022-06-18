@@ -1,7 +1,8 @@
 #ifndef __genotypes_hpp__
 #define __genotypes_hpp__
 
-#include "common.hpp"
+#include <htslib/hts.h>
+#include <vector>
 
 // genotype of a given sample at a given site is represented by 4 bits
 // First 2 bits is for the first haploid; second 2 bits for the 2nd haploid

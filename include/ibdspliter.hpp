@@ -2,16 +2,18 @@
 #define __ibdsplitter_hpp__
 
 #include "./common.hpp"
-#include "./ibdfile.hpp"
 #include "metafile.hpp"
+#include "positions.hpp"
 #include <algorithm>
+#include <memory>
+class IbdFile;
 
 class IbdSplitter
 {
     std::vector<region_label_t> &labels;
-    IbdFile in;
+    std::unique_ptr<IbdFile> in;
     std::vector<IbdFile> out_files;
-    MetaFile meta;
+    std::unique_ptr<MetaFile> meta;
 
     float cm_threshold;
 
@@ -34,7 +36,7 @@ class IbdSplitter
     bool
     is_longer_than_2cm(uint32_t pid_l, uint32_t pid_r)
     {
-        auto &pos = meta.get_positions();
+        auto &pos = meta->get_positions();
         return pos.get_cm(pid_r) - pos.get_cm(pid_l) >= cm_threshold;
     }
 };

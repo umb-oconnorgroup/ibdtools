@@ -3,6 +3,17 @@
 #include "common.hpp"
 #include "ibdfile.hpp"
 
+IbdSorter::IbdSorter(const char *in_fn, const char *out_fn, const char *out_mode,
+    const char *chunk_fn_prefix, size_t max_rec_allowed_by_ram_, ibd_rec_cmp_t Cmp_)
+    : max_rec_allowed_by_ram(max_rec_allowed_by_ram_), out_mode(out_mode), Cmp(Cmp_)
+{
+    in = std::make_unique<IbdFile>(in_fn, (MetaFile *) NULL, max_rec_allowed_by_ram);
+    out = std::make_unique<IbdFile>(out_fn, (MetaFile *) NULL, 0);
+    chunk_prefix = chunk_fn_prefix;
+    // std::cout << this->max_rec_allowed_by_ram << '\n';
+    counter = 0;
+}
+
 // Note:
 // Be sure to call constructor
 // Explitly use auto & instead of auto for reference
@@ -116,36 +127,25 @@ IbdSorter::merge_first_k_chunk(IbdFile &out_put, size_t kways)
     out_put.get_vec().shrink_to_fit();
 }
 
-IbdSorter::IbdSorter(const char *in_fn, const char *out_fn, const char *out_mode,
-    const char *chunk_fn_prefix, size_t max_rec_allowed_by_ram, ibd_rec_cmp_t Cmp)
-    : max_rec_allowed_by_ram(max_rec_allowed_by_ram), out_mode(out_mode), Cmp(Cmp)
-{
-    in = IbdFile(in_fn, NULL, max_rec_allowed_by_ram);
-    out = IbdFile(out_fn, NULL, 0);
-    chunk_prefix = chunk_fn_prefix;
-    // std::cout << this->max_rec_allowed_by_ram << '\n';
-    counter = 0;
-}
-
 void
 IbdSorter::sort_into_chunks()
 {
     // std::cout << " sortting \n";
 
-    auto &vec = in.get_vec();
+    auto &vec = in->get_vec();
     bool read_full = false;
-    in.open("r");
+    in->open("r");
 
     do {
         // fill in buffer to sort
-        read_full = in.read_from_file(false);
+        read_full = in->read_from_file(false);
 
         // sort
         // std::sort(std::execution::par_unseq, vec.begin(), vec.end());
         std::sort(vec.begin(), vec.end(), Cmp);
 
         // debug
-        // std::cout << "In file vector size: " << in.get_vec().size() << '\n';
+        // std::cout << "In file vector size: " << in->get_vec().size() << '\n';
 
         // add a new file to store tempory files
         std::string chunk_file_name = chunk_prefix;
@@ -155,16 +155,16 @@ IbdSorter::sort_into_chunks()
 
         // open the file, write and close
         chunk.open("w");
-        in.write_to_file(chunk);
+        in->write_to_file(chunk);
         chunk.close();
 
     } while (read_full);
 
     // release memory
-    in.get_vec().resize(0);
-    in.get_vec().shrink_to_fit();
+    in->get_vec().resize(0);
+    in->get_vec().shrink_to_fit();
 
-    in.close();
+    in->close();
 }
 
 void
@@ -193,9 +193,9 @@ IbdSorter::merge_chunks(size_t kways)
         chunks.erase(chunks.begin(), chunks.begin() + kways);
     }
 
-    out.open(out_mode.c_str());
-    merge_first_k_chunk(out, kways);
-    out.close();
+    out->open(out_mode.c_str());
+    merge_first_k_chunk(*out, kways);
+    out->close();
 
     for_each(chunks.begin(), chunks.end(),
         [](auto &chunk) { chunk.delete_file_from_disk(); });

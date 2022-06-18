@@ -2,6 +2,11 @@
 #define __chromosomes_hpp__
 
 #include "common.hpp"
+#include <htslib/bgzf.h>
+#include <string>
+#include <vector>
+
+void exit_on_false(bool condition, const char *message, const char *file, int lineno);
 
 class Chromosomes
 {

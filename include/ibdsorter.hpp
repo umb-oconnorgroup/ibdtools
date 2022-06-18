@@ -1,7 +1,11 @@
 #ifndef __ibdsorter_hpp__
 #define __ibdsorter_hpp__
-#include "common.hpp"
-#include "ibdfile.hpp"
+#include <common.hpp>
+#include <memory>
+#include <string>
+#include <vector>
+
+class IbdFile;
 
 // Note:
 // Be sure to call constructor
@@ -9,8 +13,8 @@
 // File id should not use vector size as it needs to erase already merged items.
 class IbdSorter
 {
-    IbdFile in;
-    IbdFile out;
+    std::unique_ptr<IbdFile> in;
+    std::unique_ptr<IbdFile> out;
     std::vector<IbdFile> chunks;
 
     size_t max_rec_allowed_by_ram;

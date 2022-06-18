@@ -1,8 +1,13 @@
 
+#include "chromosomes.hpp"
 #include "common.hpp"
+#include "genotypes.hpp"
+#include "gmap.hpp"
 #include "ibdfile.hpp"
 #include "ibdspliter.hpp"
 #include "metafile.hpp"
+#include "positions.hpp"
+#include "samples.hpp"
 #include <algorithm>
 
 IbdSplitter::IbdSplitter(const char *in_fn, const char *out_fn_prefix,
@@ -12,11 +17,12 @@ IbdSplitter::IbdSplitter(const char *in_fn, const char *out_fn_prefix,
 {
     BGZF *fp = bgzf_open(meta_fn, "r");
     exit_on_false(fp != NULL, "", __FILE__, __LINE__);
-    meta.read_from_file(fp);
+    meta = std::make_unique<MetaFile>();
+    meta->read_from_file(fp);
     bgzf_close(fp);
 
     std::string prefix = out_fn_prefix;
-    in = IbdFile(in_fn, NULL, in_ibdrec_vec_capacity);
+    in = std::make_unique<IbdFile>(in_fn, (MetaFile *) NULL, in_ibdrec_vec_capacity);
 
     // push an IbdFile for each label ( 0, 1, 2, ..., max_label)
     for (uint32_t i = 0; i <= max_label; i++) {
@@ -37,15 +43,15 @@ IbdSplitter::print_labels()
 void
 IbdSplitter::split()
 {
-    in.open("r");
+    in->open("r");
     for (auto &f : out_files)
         f.open("w");
 
-    auto &in_vec = in.get_vec();
+    auto &in_vec = in->get_vec();
 
     bool read_full;
     do {
-        read_full = in.read_from_file(false); // flush in info from input file
+        read_full = in->read_from_file(false); // flush in info from input file
 
         for (auto rec : in_vec) {
 
@@ -54,7 +60,7 @@ IbdSplitter::split()
 
     } while (read_full); // if read_full is false, the input file reachs eof.
 
-    in.close();
+    in->close();
 
     // flush out ibd_vec to file
     for (auto &f : out_files) {

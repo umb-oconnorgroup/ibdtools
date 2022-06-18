@@ -1,6 +1,7 @@
 #ifndef __samples_hpp__
 #define __samples_hpp__
 
+#include <fstream>
 #include <unordered_map>
 
 #include "common.hpp"

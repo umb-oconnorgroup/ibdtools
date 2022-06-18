@@ -1,12 +1,13 @@
 #ifndef __ibdcoverage_hpp__
 #define __ibdcoverage_hpp__
 #include "common.hpp"
-#include "ibdfile.hpp"
 #include "metafile.hpp"
-#include <cstdint>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
+#include <iterator>
+#include <string>
+#include <vector>
+
+class IbdFile;
+class MetaFile;
 
 class IbdCoverage
 {
@@ -17,8 +18,8 @@ class IbdCoverage
     size_t total_rec_processed{ 0 };
 
     // inputs
-    IbdFile in;
-    MetaFile meta;
+    std::unique_ptr<IbdFile> in;
+    std::unique_ptr<MetaFile> meta;
     std::vector<uint8_t> subpop_v; // vector of 0's and 1's , 1 means sample is of a
                                    // subpopultion of interest
 
@@ -34,7 +35,7 @@ class IbdCoverage
     std::vector<group_t> grps_vec;
 
   public:
-    IbdCoverage() {}
+    IbdCoverage();
     IbdCoverage(const char *ibd_fn, const char *meta_fn, float win_in_cM = 1.0,
         size_t max_rec_ram = 1 * 1024 * 1024, const char *subpop_fn = NULL);
 

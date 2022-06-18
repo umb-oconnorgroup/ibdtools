@@ -1,4 +1,5 @@
 #include "common.hpp"
+#include <charconv>
 
 StringViewSplitter::StringViewSplitter(const char *delim_, size_t reserved_size)
     : delim{ delim_ }

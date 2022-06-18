@@ -3,9 +3,11 @@
 #include "./common.hpp"
 #include "./ibdfile.hpp"
 #include "./metafile.hpp"
+#include "chromosomes.hpp"
 #include "genotypes.hpp"
 #include "gmap.hpp"
 #include "positions.hpp"
+#include "samples.hpp"
 
 IbdMerger::IbdMerger(const char *in_fn, const char *out_fn, const char *out_mode,
     const char *meta_fn, size_t max_rec_allowed_by_ram, size_t max_snp, float max_cm)

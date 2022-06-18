@@ -1,11 +1,10 @@
 #ifndef __ibdmatrix_hpp__
 #define __ibdmatrix_hpp__
 #include "common.hpp"
-#include "ibdfile.hpp"
-#include "metafile.hpp"
-#include "positions.hpp"
-#include <filesystem>
-#include <iostream>
+#include <cmath>
+
+class IbdFile;
+class MetaFile;
 
 class IbdMatrix
 {
@@ -88,9 +87,11 @@ class IbdMatrix
 
     void calculate_total_from_ibdfile(IbdFile &ibdfile, bool use_hap_pair = false,
         const char *subpop_fn = NULL, float min_cM = 2.0, float max_cM = -1.0);
+
     // @win_size_in_10th_cm: 1 means 0.1cm window; 2 means 0.2cm ...
     void get_histogram(std::vector<size_t> &count_vec, uint16_t win_size_in_10th_cm = 1,
         MetaFile *meta = NULL, const char *subpop_fn = NULL, bool use_hap_pair = false);
+
     void subset_matrix(const std::vector<uint32_t> &in_subpop_ids);
 
     // keep any element x if low <= x < upper and set other element to 0

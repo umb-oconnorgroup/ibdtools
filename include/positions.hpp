@@ -2,6 +2,7 @@
 #define __positions_hpp__
 
 #include "common.hpp"
+#include <unordered_map>
 
 // Positions for a given chromosome
 class Positions

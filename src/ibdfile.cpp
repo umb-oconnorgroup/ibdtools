@@ -1,9 +1,14 @@
 
 #include <charconv>
+#include <fmt/core.h>
 
+#include "chromosomes.hpp"
 #include "common.hpp"
 #include "ibdfile.hpp"
 #include "metafile.hpp"
+#include "positions.hpp"
+#include "samples.hpp"
+#include <filesystem>
 
 // IbdFile object represent an packed IBD file
 IbdFile::IbdFile(const char *ibd_fn, MetaFile *meta_, size_t max_rec)

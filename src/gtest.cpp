@@ -1,18 +1,15 @@
-#include "../include/ibdcoverage.hpp"
-#include "../include/ibdfile.hpp"
-#include "../include/ibdmatrix.hpp"
-#include "../include/ibdmerger.hpp"
-#include "../include/ibdsorter.hpp"
-#include "../include/ibdspliter.hpp"
-#include "../include/metafile.hpp"
-#include <algorithm>
-#include <cstdint>
+#include "chromosomes.hpp"
+#include "genotypes.hpp"
+#include "gmap.hpp"
+#include "ibdcoverage.hpp"
+#include "ibdmatrix.hpp"
+#include "ibdmerger.hpp"
+#include "ibdsorter.hpp"
+#include "ibdspliter.hpp"
+#include "samples.hpp"
+#include <charconv>
 #include <gtest/gtest.h>
-#include <iterator>
-#include <memory>
-#include <numeric>
 #include <random>
-#include <stdio.h>
 
 const char *map_fn = "data/example.map";
 const char *vcf_fn = "data/example.bcf.gz";

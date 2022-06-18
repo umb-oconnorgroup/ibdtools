@@ -1,28 +1,9 @@
 #ifndef __common_hpp__
 #define __common_hpp__
 
-#include <cstdint>
-#include <cstdlib>
-#include <functional>
-#include <htslib/bgzf.h>
-#include <htslib/hts.h>
-
-#include <algorithm>
-#include <charconv>
 #include <chrono>
-#include <filesystem>
-#include <fmt/core.h>
-#include <fstream>
-#include <htslib/kstring.h>
+#include <htslib/hts.h>
 #include <iostream>
-#include <istream>
-#include <iterator>
-#include <list>
-#include <numeric>
-#include <sstream>
-#include <string>
-#include <type_traits>
-#include <unordered_map>
 #include <vector>
 
 // from htslib bgzf.c

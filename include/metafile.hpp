@@ -5,24 +5,23 @@
 #include <htslib/vcf.h>
 
 #include <iostream>
-
-#include "chromosomes.hpp"
-#include "common.hpp"
-#include "genotypes.hpp"
-#include "gmap.hpp"
-#include "positions.hpp"
-#include "samples.hpp"
+#include <memory>
+class Chromosomes;
+class GeneticMap;
+class Genotypes;
+class Samples;
+class Positions;
 
 class MetaFile
 {
-    Chromosomes chromosomes;
-    GeneticMap gmap;
-    Samples samples;
-    Positions positions;
-    Genotypes genotypes;
+    std::unique_ptr<Chromosomes> chromosomes;
+    std::unique_ptr<GeneticMap> gmap;
+    std::unique_ptr<Samples> samples;
+    std::unique_ptr<Positions> positions;
+    std::unique_ptr<Genotypes> genotypes;
 
   public:
-    MetaFile() {}
+    MetaFile();
     void parse_files(const char *vcf_fn, const char *gmap_fn, bool parse_genotype = true,
         std::string chr_name = "0");
     void write_to_file(BGZF *fp);
@@ -37,27 +36,27 @@ class MetaFile
     Genotypes &
     get_genotypes()
     {
-        return genotypes;
+        return *genotypes;
     }
     Samples &
     get_samples()
     {
-        return samples;
+        return *samples;
     }
     Positions &
     get_positions()
     {
-        return positions;
+        return *positions;
     }
     GeneticMap &
     get_genetic_map()
     {
-        return gmap;
+        return *gmap;
     }
     Chromosomes &
     get_chromosomes()
     {
-        return chromosomes;
+        return *chromosomes;
     }
 };
 

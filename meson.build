@@ -21,7 +21,7 @@ cpps = ['src/common.cpp', 'src/scopedtimer.cpp', 'src/io.cpp', 'src/svsplitter.c
   'src/tournamenttree.cpp', 'src/ibdfile.cpp', 'src/chromosomes.cpp', 
   'src/genotypes.cpp', 'src/positions.cpp', 'src/metafile.cpp', 'src/ibdsplitters.cpp',
   'src/ibdsorter.cpp', 'src/ibdmerger.cpp', 'src/ibdmatrix.cpp', 'src/ibdcoverage.cpp',
-  'src/ibdstat.cpp'
+  'src/ibdstat.cpp', 'src/gmap.cpp'
   ]
 ibdtools_cpp = ['src/ibdtools.cpp'] + cpps
 tests_cpp= ['src/gtest.cpp'] + cpps
