@@ -8,6 +8,7 @@
 #include "ibdspliter.hpp"
 #include "samples.hpp"
 #include <charconv>
+#include <filesystem>
 #include <gtest/gtest.h>
 #include <random>
 

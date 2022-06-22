@@ -1,6 +1,8 @@
 
 #include "common.hpp"
 #include <htslib/bgzf.h>
+#include <htslib/hts.h>
+#include <htslib/kstring.h>
 #include <sstream>
 
 template void write_vector_to_file(std::vector<std::string> &v, BGZF *fp);

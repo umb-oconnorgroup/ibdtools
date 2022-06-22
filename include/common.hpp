@@ -2,6 +2,7 @@
 #define __common_hpp__
 
 #include <chrono>
+#include <functional>
 #include <htslib/hts.h>
 #include <iostream>
 #include <vector>

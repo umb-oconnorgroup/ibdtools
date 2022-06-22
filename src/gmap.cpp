@@ -1,6 +1,7 @@
 #include "gmap.hpp"
 #include "common.hpp"
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <string>

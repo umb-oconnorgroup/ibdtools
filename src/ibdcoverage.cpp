@@ -7,6 +7,7 @@
 #include "metafile.hpp"
 #include "positions.hpp"
 #include "samples.hpp"
+#include <filesystem>
 IbdCoverage::IbdCoverage() {}
 
 IbdCoverage::IbdCoverage(const char *ibd_fn, const char *meta_fn, float win_in_cM,

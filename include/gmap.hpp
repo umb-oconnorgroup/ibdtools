@@ -1,6 +1,7 @@
 #ifndef __gmap_hpp__
 #define __gmap_hpp__
 
+#include <algorithm>
 #include <cmath>
 #include <htslib/hts.h>
 #include <vector>

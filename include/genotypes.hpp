@@ -2,6 +2,7 @@
 #define __genotypes_hpp__
 
 #include <htslib/hts.h>
+#include <string>
 #include <vector>
 
 // genotype of a given sample at a given site is represented by 4 bits
