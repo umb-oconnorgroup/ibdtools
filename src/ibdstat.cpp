@@ -15,7 +15,7 @@ IbdStat::IbdStat(
 {
 
     BGZF *fp = bgzf_open(meta_fn, "r");
-    exit_on_false(fp != NULL, "can't open meta file", __FILE__, __LINE__);
+    my_assert(fp != NULL, "can't open meta file");
     meta.read_from_file(fp, false);
     bgzf_close(fp);
     fp = NULL;

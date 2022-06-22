@@ -1,18 +1,11 @@
 #include "common.hpp"
 #include <iostream>
-void
-exit_on_false(bool condition, const char *message, const char *file, int lineno)
-{
-    if (!condition) {
-        std::cerr << "Error from " << file << ":" << lineno << ": " << message << "\n";
-        exit(-1);
-    }
-}
 
 void
-exit_with_message(const char *message)
+exit_with_message(const char *message, const char *file, const int lineno)
 {
-    std::cerr << "Error: " << message << "\n";
+    std::cerr << "Error: " << (message) << " (from " << (file) << " + " << (lineno)
+              << ") \n";
     exit(-1);
 }
 
@@ -20,9 +13,9 @@ void
 add_exclusion_range(
     std::vector<region_label_t> &label_v, uint32_t pid_left, uint32_t pid_right)
 {
-    exit_on_false(label_v.size() > 0, "", __FILE__, __LINE__);
-    exit_on_false(label_v[0].pid_s <= pid_left, "", __FILE__, __LINE__);
-    exit_on_false(pid_left < pid_right, "", __FILE__, __LINE__);
+    my_assert(label_v.size() > 0, "");
+    my_assert(label_v[0].pid_s <= pid_left, "");
+    my_assert(pid_left < pid_right, "");
 
     using namespace std;
     size_t id1, id2;

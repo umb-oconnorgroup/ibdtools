@@ -49,7 +49,7 @@ template <typename T>
 void
 StringViewSplitter::get(size_t which, T &val)
 {
-    exit_on_false(which < sv_vec.size(), "out of range", __FILE__, __LINE__);
+    my_assert(which < sv_vec.size(), "out of range");
     if constexpr (std::is_same_v<T, std::string>) {
         val.clear();
         val += sv_vec[which];

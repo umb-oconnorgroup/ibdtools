@@ -30,10 +30,10 @@ MetaFile::parse_files(
 
     htsFile *htsfp = bcf_open(vcf_fn, "r");
 
-    exit_on_false(htsfp != NULL, "Cannot open vcf file", __FILE__, __LINE__);
+    my_assert(htsfp != NULL, "Cannot open vcf file");
 
     bcf_hdr_t *header = bcf_hdr_read(htsfp);
-    exit_on_false(header != NULL, "Cannot read vcf header", __FILE__, __LINE__);
+    my_assert(header != NULL, "Cannot read vcf header");
     auto nsam = header->n[BCF_DT_SAMPLE];
 
     genotypes = std::make_unique<Genotypes>(nsam);
@@ -48,7 +48,7 @@ MetaFile::parse_files(
         samples->add(header->id[BCF_DT_SAMPLE][i].key);
 
     bcf1_t *rec = bcf_init();
-    exit_on_false(rec != NULL, "Cannot initialize bcf record", __FILE__, __LINE__);
+    my_assert(rec != NULL, "Cannot initialize bcf record");
 
     // loop over each record
     int32_t *dest = NULL;
@@ -68,8 +68,7 @@ MetaFile::parse_files(
         if (parse_genotype && success) {
             // 2. get an array of alleles
             bcf_get_genotypes(header, rec, &dest, &count);
-            exit_on_false(
-                max_ploidy * nsam == count, "Max ploidy is not 2", __FILE__, __LINE__);
+            my_assert(max_ploidy * nsam == count, "Max ploidy is not 2");
 
             // 3. loop over allele array and store the alleles
             for (int32_t i = 0; i < count; i += 2) {

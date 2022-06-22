@@ -3,8 +3,7 @@
 template <typename T>
 TournamentTree<T>::TournamentTree(int k_, T max_val) : max_val(max_val), k(k_)
 {
-    exit_on_false(
-        k >= 1, "the number of node needs to be greater than 1", __FILE__, __LINE__);
+    my_assert(k >= 1, "the number of node needs to be greater than 1");
 
     for (N = 1; (1UL << N) < (size_t) k; N++)
         ;
@@ -31,7 +30,7 @@ template <typename T>
 [[nodiscard]] T &
 TournamentTree<T>::init_run(std::vector<T> initial_vals, size_t &winner_id)
 {
-    exit_on_false(k == initial_vals.size(), "", __FILE__, __LINE__);
+    my_assert(k == initial_vals.size(), "");
     std::vector<size_t> layer_start_vec;
     for (size_t layer = 0, count = 0; layer <= N; count += (1 << layer), layer++) {
         layer_start_vec.push_back(count);

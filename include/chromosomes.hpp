@@ -6,8 +6,6 @@
 #include <string>
 #include <vector>
 
-void exit_on_false(bool condition, const char *message, const char *file, int lineno);
-
 class Chromosomes
 {
     std::vector<std::string> names_vec;
@@ -27,7 +25,7 @@ class Chromosomes
     get_id(const std::string name)
     {
         auto it = std::find(names_vec.begin(), names_vec.end(), name);
-        exit_on_false(it != names_vec.end(), "", __FILE__, __LINE__);
+        my_assert(it != names_vec.end(), "");
         return std::distance(names_vec.begin(), it);
     }
 

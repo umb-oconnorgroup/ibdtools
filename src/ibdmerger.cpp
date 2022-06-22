@@ -19,7 +19,7 @@ IbdMerger::IbdMerger(const char *in_fn, const char *out_fn, const char *out_mode
     //
     // read meta
     BGZF *fp = bgzf_open(meta_fn, "r");
-    exit_on_false(fp != NULL, "", __FILE__, __LINE__);
+    my_assert(fp != NULL, "");
     meta.read_from_file(fp);
     bgzf_close(fp);
 
@@ -70,12 +70,12 @@ IbdMerger::find_group_start(size_t id)
     // size_t id_o = id;
 
     auto &vec = in.get_vec();
-    exit_on_false(id >= 0 && id < vec.size(), "", __FILE__, __LINE__);
+    my_assert(id >= 0 && id < vec.size(), "");
 
     // if the same as the one above, move above
     while (id != 0 && vec[id - 1].is_same_pair(vec[id]))
         id--;
-    exit_on_false(id >= 0 && id < vec.size(), "", __FILE__, __LINE__);
+    my_assert(id >= 0 && id < vec.size(), "");
 
     // std::cout << "id in: " << id_o;
     // std::cout << " id out: " << id << '\n';
@@ -137,7 +137,7 @@ IbdMerger::is_mergeable(size_t id1, size_t id2)
         d = c >> 2;
         c &= 0b11;
 
-        exit_on_false(a <= 1 && b <= 1 && c <= 1 && d <= 1, "", __FILE__, __LINE__);
+        my_assert(a <= 1 && b <= 1 && c <= 1 && d <= 1, "");
 
         // sample1 is homozgyote and sample 2 is homozygote but their genotype is
         // different, then add 1;

@@ -20,10 +20,9 @@ GeneticMap::GeneticMap(int chrom_id_, const char *gmap_fn) : chrom_id(chrom_id_)
     size_t line_counter = 0;
     while (std::getline(ifs, line, '\n')) {
         if (line_counter < 10) {
-            exit_on_false((line.npos == line.find_first_of('\t')),
+            my_assert((line.npos == line.find_first_of('\t')),
                 "Error in parsing plink map. Found tab but should use space "
-                "as column delimiter",
-                __FILE__, __LINE__);
+                "as column delimiter");
         }
         std::istringstream iss(line);
         std::getline(iss, field, ' ');
@@ -41,7 +40,7 @@ GeneticMap::GeneticMap(int chrom_id_, const char *gmap_fn) : chrom_id(chrom_id_)
 void
 GeneticMap::print_range_info(size_t lower_id)
 {
-    exit_on_false(lower_id >= 0, "", __FILE__, __LINE__);
+    my_assert(lower_id >= 0, "");
     if (lower_id >= bp_pos_vec.size() - 1) {
         std::cout << std::setprecision(10) << "bp [" << bp_pos_vec.back() << ", Inf)"
                   << " cm [" << cm_pos_vec.back()

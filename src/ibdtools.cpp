@@ -104,14 +104,13 @@ ibdtools_encode_main(int argc, char *argv[])
     // open file for save meta file
     BGZF *fp = NULL;
     fp = bgzf_open(meta_out_fn.c_str(), "w");
-    exit_on_false(fp != NULL, "", __FILE__, __LINE__);
+    my_assert(fp != NULL, "");
     bgzf_index_build_init(fp);
 
     MetaFile meta;
     meta.parse_files(vcf_in_fn.c_str(), map_in_fn.c_str(), true, chr_name.c_str());
     meta.write_to_file(fp);
-    exit_on_false(
-        0 == bgzf_index_dump(fp, meta_out_fn.c_str(), ".gzi"), "", __FILE__, __LINE__);
+    my_assert(0 == bgzf_index_dump(fp, meta_out_fn.c_str(), ".gzi"), "");
     bgzf_close(fp);
     fp = NULL;
 
@@ -171,7 +170,7 @@ ibdtools_snpdens_main(int argc, char *argv[])
     // open file for save meta file
     BGZF *fp = NULL;
     fp = bgzf_open(meta_in_fn.c_str(), "r");
-    exit_on_false(fp != NULL, "", __FILE__, __LINE__);
+    my_assert(fp != NULL, "");
 
     MetaFile meta;
     meta.read_from_file(fp, false);
@@ -360,8 +359,8 @@ ibdtools_split_main(int argc, char *argv[])
                 auto &pos = meta.get_positions();
                 auto &gmap = meta.get_genetic_map();
 
-                exit_on_false(type == "CM" || type == "BP",
-                    "region list should be either cM or bp", __FILE__, __LINE__);
+                my_assert(type == "CM" || type == "BP",
+                    "region list should be either cM or bp");
 
                 if (type == "CM") {
                     spliter.get(1, leftf);
@@ -623,7 +622,7 @@ ibdtools_matrix_main(int argc, char *argv[])
     // prepare meta and ibd file objects
     MetaFile meta;
     BGZF *fp = bgzf_open(meta_in.c_str(), "r");
-    exit_on_false(fp != NULL, "", __FILE__, __LINE__);
+    my_assert(fp != NULL, "");
     meta.read_from_file(fp);
     bgzf_close(fp);
     fp = NULL;
@@ -635,15 +634,15 @@ ibdtools_matrix_main(int argc, char *argv[])
         IbdFile ibdfile(ibd_in.c_str(), &meta, mem / 10 * 1024 * 1024 * 1024);
         ibdfile.open("r");
 
-        exit_on_false(matrices_in.size() == 0,
-            "--ibd_in and --matrices_in are mutual exclusive", __FILE__, __LINE__);
+        my_assert(
+            matrices_in.size() == 0, "--ibd_in and --matrices_in are mutual exclusive");
         mat.calculate_total_from_ibdfile(
             ibdfile, use_hap_pair != 0, NULL, min_seg_cM, max_seg_cM);
 
         ibdfile.close();
     } else {
-        exit_on_false(matrices_in.size() > 1,
-            "--ibd_in and --matrices_in are mutual exclusive", __FILE__, __LINE__);
+        my_assert(
+            matrices_in.size() > 1, "--ibd_in and --matrices_in are mutual exclusive");
         mat.read_matrix_file(matrices_in[0].c_str());
         cerr << "read matrix: " << matrices_in[0] << '\n';
 
@@ -658,7 +657,7 @@ ibdtools_matrix_main(int argc, char *argv[])
     // filter by total ibd length
     filt_lower_cm10x = 10 * filt_lower_cm;
     filt_upper_cm10x = 10 * filt_upper_cm;
-    exit_on_false(filt_lower_cm10x < filt_upper_cm10x, "", __FILE__, __LINE__);
+    my_assert(filt_lower_cm10x < filt_upper_cm10x, "");
     string mat_fn;
     if (filt_lower_cm10x != 0 || filt_upper_cm10x != filt_max) {
         mat.filter_matrix(filt_lower_cm10x, filt_upper_cm10x);
@@ -767,7 +766,7 @@ ibdtools_decode_main(int argc, char *argv[])
     BGZF *fp = NULL;
 
     fp = bgzf_open(meta_in.c_str(), "r");
-    exit_on_false(fp != NULL, "", __FILE__, __LINE__);
+    my_assert(fp != NULL, "");
     MetaFile meta;
     meta.read_from_file(fp);
     bgzf_close(fp);
@@ -843,7 +842,7 @@ ibdtools_view_main(int argc, char *argv[])
 
     MetaFile meta;
     BGZF *fp = bgzf_open(meta_in.c_str(), "r");
-    exit_on_false(fp != NULL, "", __FILE__, __LINE__);
+    my_assert(fp != NULL, "");
     meta.read_from_file(fp);
     bgzf_close(fp);
 
@@ -857,8 +856,7 @@ ibdtools_view_main(int argc, char *argv[])
 
     // samepl name overried sid
     if (sample1 != "" || sample2 != "") {
-        exit_on_false(sample1 != "" && sample2 != "" && sample1 != sample2, "", __FILE__,
-            __LINE__);
+        my_assert(sample1 != "" && sample2 != "" && sample1 != sample2, "");
         sid1 = meta.get_samples().get_id(sample1);
         sid2 = meta.get_samples().get_id(sample2);
     }
@@ -925,7 +923,7 @@ ibdtools_stat_main(int argc, char *argv[])
         check_required_option(options, result, "meta_in");
         check_required_option(options, result, "out");
 
-        exit_on_false(stat_out != "", "", __FILE__, __LINE__);
+        my_assert(stat_out != "", "");
 
         cerr << "ibdtools stat options received: \n";
         cerr << "--ibd_in:       " << ibd_in << '\n';

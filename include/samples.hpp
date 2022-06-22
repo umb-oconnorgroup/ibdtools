@@ -82,7 +82,7 @@ class Samples
     void
     get_subpop_vector(const char *subpop_fn, std::vector<uint8_t> &subpop_v)
     {
-        exit_on_false(subpop_fn != NULL, "", __FILE__, __LINE__);
+        my_assert(subpop_fn != NULL, "");
 
         subpop_v.resize(get_num_samples(), 0);
         std::ifstream ifs(subpop_fn);

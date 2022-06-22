@@ -401,7 +401,7 @@ TEST(htslib, DISABLED_bgzf_write_uncompressed)
     BGZF *fp = bgzf_open("tmp_write_test.gz", "ru");
     res = bgzf_read(fp, &vec[0], sz * sizeof(int));
     conda = res >= 0 && ((size_t) res) == sz * sizeof(int);
-    exit_on_false(conda, "", __FILE__, __LINE__);
+    my_assert(conda, "");
     bgzf_close(fp);
 }
 
@@ -996,13 +996,13 @@ TEST(ibdtools, bgzidx)
         bgzf_index_build_init(fp);
         meta.write_to_file(fp);
         auto res = bgzf_index_dump(fp, temp_file1, ".gzi");
-        exit_on_false(res == 0, "", __FILE__, __LINE__);
+        my_assert(res == 0, "");
         bgzf_close(fp);
     }
     {
         BGZF *fp = bgzf_open(temp_file1, "r");
         auto res = bgzf_index_load(fp, temp_file1, ".gzi");
-        exit_on_false(res == 0, "", __FILE__, __LINE__);
+        my_assert(res == 0, "");
     }
 }
 

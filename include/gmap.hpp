@@ -1,12 +1,11 @@
 #ifndef __gmap_hpp__
 #define __gmap_hpp__
 
+#include "common.hpp"
 #include <algorithm>
 #include <cmath>
 #include <htslib/hts.h>
 #include <vector>
-
-void exit_on_false(bool condition, const char *message, const char *file, int lineno);
 
 class GeneticMap
 {
@@ -137,9 +136,8 @@ class GeneticMap
     void
     add_final_slope()
     {
-        exit_on_false(slope_vec.size() + 1 == bp_pos_vec.size(),
-            "The GeneticMap might already have added the final slope", __FILE__,
-            __LINE__);
+        my_assert(slope_vec.size() + 1 == bp_pos_vec.size(),
+            "The GeneticMap might already have added the final slope");
         // extrapolate the last slope
         slope_vec.push_back(slope_vec.back());
     }

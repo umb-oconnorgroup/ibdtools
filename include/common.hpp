@@ -20,8 +20,14 @@ typedef struct {
 //     uint64_t ublock_addr; // offset of the current block (uncompressed data)
 // };
 
-void exit_on_false(bool condition, const char *message, const char *file, int lineno);
-void exit_with_message(const char *message);
+void exit_with_message(const char *message, const char *file = "", const int lino = 0);
+
+#define my_assert(condition, message)                                                   \
+    do {                                                                                \
+        if (!(condition)) {                                                             \
+            exit_with_message((message), __FILE__, __LINE__);                           \
+        }                                                                               \
+    } while (0)
 
 struct region_label_t {
     uint32_t pid_s : 24; // region start position id
@@ -220,7 +226,7 @@ struct __attribute__((packed)) ibd_rec1_t {
             this->print();
             r2.print();
         }
-        exit_on_false(is_equal(*this, r2), "", __FILE__, __LINE__);
+        my_assert(is_equal(*this, r2), "");
         */
     }
     // getter

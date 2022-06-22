@@ -26,15 +26,15 @@ write_vector_to_file(std::vector<T> &v, BGZF *fp)
 
         // calculate total size
         for (auto &s : v) {
-            exit_on_false(std::find(s.begin(), s.end(), '\n') == s.end(),
-                "string should not contains '\n'", __FILE__, __LINE__);
+            my_assert(std::find(s.begin(), s.end(), '\n') == s.end(),
+                "string should not contains '\n'");
             total_bytes += s.size() + 1; // add 1 for '\n'
         }
 
         // write size info
         ret = bgzf_write(fp, &total_bytes, sizeof(total_bytes));
         condition = ret >= 0 && ((size_t) ret) == sizeof(total_bytes);
-        exit_on_false(condition, "", __FILE__, __LINE__);
+        my_assert(condition, "");
 
         // write contents via buffer
         if (total_bytes > 0) {
@@ -46,7 +46,7 @@ write_vector_to_file(std::vector<T> &v, BGZF *fp)
             ret = bgzf_write(fp, buffer_str.c_str(), total_bytes);
             condition = ret >= 0 && ((size_t) ret) == total_bytes;
             const char *msg = "write_vector_to_file error for string type";
-            exit_on_false(condition, msg, __FILE__, __LINE__);
+            my_assert(condition, msg);
         }
 
     } else if constexpr (
@@ -59,13 +59,13 @@ write_vector_to_file(std::vector<T> &v, BGZF *fp)
 
         ret = bgzf_write(fp, &total_bytes, sizeof(total_bytes));
         condition = ret >= 0 && ((size_t) ret) == sizeof(total_bytes);
-        exit_on_false(condition, "", __FILE__, __LINE__);
+        my_assert(condition, "");
 
         // write contents
         ret = bgzf_write(fp, &v[0], total_bytes);
         condition = ret >= 0 && ((size_t) ret) == total_bytes;
         const char *msg = "write_vector_to_file error for string type";
-        exit_on_false(condition, msg, __FILE__, __LINE__);
+        my_assert(condition, msg);
 
     } else {
         std::cerr << "write_vector_to_file is not implemented for this Type\n";
@@ -93,16 +93,14 @@ read_vector_from_file(std::vector<T> &v, BGZF *fp)
 
         // get size info from file
         ret = bgzf_read(fp, &total_bytes, sizeof(total_bytes));
-        exit_on_false(
-            ret >= 0 && ((size_t) ret) == sizeof(total_bytes), "", __FILE__, __LINE__);
+        my_assert(ret >= 0 && ((size_t) ret) == sizeof(total_bytes), "");
 
         if (total_bytes > 0) {
             // get content from file
             buffer_str.resize(total_bytes);
             ret = bgzf_read(fp, &buffer_str[0], total_bytes);
-            exit_on_false(ret >= 0 && ((size_t) ret) == total_bytes,
-                "read_vector_from_file content reading error for string type", __FILE__,
-                __LINE__);
+            my_assert(ret >= 0 && ((size_t) ret) == total_bytes,
+                "read_vector_from_file content reading error for string type");
 
             // fill the vector
             std::istringstream iss(buffer_str);
@@ -122,17 +120,15 @@ read_vector_from_file(std::vector<T> &v, BGZF *fp)
 
         // get size info from file
         ret = bgzf_read(fp, &total_bytes, sizeof(total_bytes));
-        exit_on_false(ret >= 0 && ((size_t) ret) == sizeof(total_bytes),
-            "read_vector_from_file size info reading error for arithemtic/ibd_rec types",
-            __FILE__, __LINE__);
-
+        my_assert(ret >= 0 && ((size_t) ret) == sizeof(total_bytes),
+            "read_vector_from_file size info reading error for arithemtic/ibd_rec "
+            "types");
         // get content from file
         vector_sz = total_bytes / sizeof(T);
         v.resize(vector_sz);
         ret = bgzf_read(fp, &v[0], total_bytes);
-        exit_on_false(ret >= 0 && ((size_t) ret) == total_bytes,
-            "read_vector_from_file content reading error for arithemtic/ibd_rec types",
-            __FILE__, __LINE__);
+        my_assert(ret >= 0 && ((size_t) ret) == total_bytes,
+            "read_vector_from_file content reading error for arithemtic/ibd_rec types");
 
     } else {
         exit_with_message("read_vector_to_file is not implemented for this Type\n");
@@ -155,8 +151,8 @@ write_element_to_file(T &v, BGZF *fp)
             T> || std::is_same_v<T, ibd_rec1_t> || std::is_same_v<T, ibd_rec2_t>) {
         // get content from file
         ret = bgzf_write(fp, &v, sizeof v);
-        exit_on_false(ret > 0 && ((size_t) ret) == sizeof v,
-            "write_element_from_file error", __FILE__, __LINE__);
+        my_assert(
+            ret > 0 && ((size_t) ret) == sizeof v, "write_element_from_file error");
 
     } else {
         exit_with_message("read_element_to_file is not implemented for this Type\n");
@@ -179,8 +175,7 @@ read_element_from_file(T &v, BGZF *fp)
             T> || std::is_same_v<T, ibd_rec1_t> || std::is_same_v<T, ibd_rec2_t>) {
         // get content from file
         ret = bgzf_read(fp, &v, sizeof v);
-        exit_on_false(ret > 0 && ((size_t) ret) == sizeof v,
-            "read_element_from_file error", __FILE__, __LINE__);
+        my_assert(ret > 0 && ((size_t) ret) == sizeof v, "read_element_from_file error");
 
     } else {
         exit_with_message("read_element_to_file is not implemented for this Type\n");
@@ -192,7 +187,7 @@ read_lines_from_file(const char *fn)
 {
     std::vector<std::string> lines;
     BGZF *fp = bgzf_open(fn, "r");
-    exit_on_false(fp != NULL, "bgzf_open error", __FILE__, __LINE__);
+    my_assert(fp != NULL, "bgzf_open error");
     kstring_t kstr = { 0 };
     while (bgzf_getline(fp, '\n', &kstr) >= 0) {
         lines.push_back(std::string(ks_c_str(&kstr)));
@@ -209,10 +204,10 @@ GziFile::GziFile(const char *fn)
     FILE *fp = fopen(fn, "r");
     uint64_t sz = 0;
     ret = fread(&sz, sizeof(sz), 1, fp);
-    exit_on_false(ret >= 0 && ((size_t) ret) == 1, "", __FILE__, __LINE__);
+    my_assert(ret >= 0 && ((size_t) ret) == 1, "");
     vec.resize(sz);
     ret = fread(&vec[0], sizeof(decltype(vec)::value_type), sz, fp);
-    exit_on_false(ret >= 0 && ((size_t) ret) == sz, "", __FILE__, __LINE__);
+    my_assert(ret >= 0 && ((size_t) ret) == sz, "");
     fclose(fp);
 
     block_buffer.resize(64 * 1024);

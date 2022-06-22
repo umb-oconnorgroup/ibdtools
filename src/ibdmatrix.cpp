@@ -24,21 +24,20 @@ void
 IbdMatrix::read_matrix_file(const char *matrix_fn)
 {
     BGZF *fp = bgzf_open(matrix_fn, "r");
-    exit_on_false(fp != NULL, "", __FILE__, __LINE__);
+    my_assert(fp != NULL, "");
 
     bgzf_mt(fp, 10, 256);
 
     std::string gzi(matrix_fn);
     gzi += ".gzi";
     if (std::filesystem::exists(gzi))
-        exit_on_false(
-            0 == bgzf_index_load(fp, matrix_fn, ".gzi"), "", __FILE__, __LINE__);
+        my_assert(0 == bgzf_index_load(fp, matrix_fn, ".gzi"), "");
 
     read_element_from_file(is_hap_pair_m, fp);
     read_element_from_file(d, fp);
     read_vector_from_file(this->subpop_ids, fp);
     read_vector_from_file(cm10x_vec, fp);
-    exit_on_false(get_array_size() == cm10x_vec.size(), "", __FILE__, __LINE__);
+    my_assert(get_array_size() == cm10x_vec.size(), "");
 
     bgzf_close(fp);
 }
@@ -47,18 +46,18 @@ void
 IbdMatrix::write_matrix_file(const char *matrix_fn)
 {
     BGZF *fp = bgzf_open(matrix_fn, "w");
-    exit_on_false(fp != NULL, "", __FILE__, __LINE__);
+    my_assert(fp != NULL, "");
 
     bgzf_mt(fp, 10, 256);
     bgzf_index_build_init(fp);
-    exit_on_false(get_array_size() == cm10x_vec.size(), "", __FILE__, __LINE__);
+    my_assert(get_array_size() == cm10x_vec.size(), "");
 
     write_element_to_file(is_hap_pair_m, fp);
     write_element_to_file(d, fp);
     write_vector_to_file(this->subpop_ids, fp);
     write_vector_to_file(cm10x_vec, fp);
 
-    exit_on_false(0 == bgzf_index_dump(fp, matrix_fn, ".gzi"), "", __FILE__, __LINE__);
+    my_assert(0 == bgzf_index_dump(fp, matrix_fn, ".gzi"), "");
     bgzf_close(fp);
 }
 
@@ -66,7 +65,7 @@ void
 IbdMatrix::add_matrix(const IbdMatrix &mat2)
 {
     std::cerr << "mat.d: " << d << " mat2.d: " << mat2.d << '\n';
-    exit_on_false(d == mat2.d, "", __FILE__, __LINE__);
+    my_assert(d == mat2.d, "");
     std::transform(cm10x_vec.begin(), cm10x_vec.end(), mat2.cm10x_vec.begin(),
         cm10x_vec.begin(), std::plus<uint16_t>());
 }
@@ -79,8 +78,7 @@ IbdMatrix::calculate_total_from_ibdfile(IbdFile &ibdfile, bool use_hap_pair,
         max_cM = std::numeric_limits<float>::max();
     }
     MetaFile *meta = ibdfile.get_meta();
-    exit_on_false(meta != NULL, "calculate total need info from the meta file", __FILE__,
-        __LINE__);
+    my_assert(meta != NULL, "calculate total need info from the meta file");
 
     is_hap_pair_m = use_hap_pair;
 
@@ -152,7 +150,7 @@ IbdMatrix::get_histogram(std::vector<size_t> &count_vec, uint16_t win_size_in_10
     std::vector<uint8_t> subpop_v; // vector of 0's and 1's , 1 means sample is of a
                                    // subpopultion of interest
     if (subpop_fn != NULL) {
-        exit_on_false(meta != NULL, "", __FILE__, __LINE__);
+        my_assert(meta != NULL, "");
         meta->get_samples().get_subpop_vector(subpop_fn, subpop_v);
 
         // debgu
@@ -185,9 +183,8 @@ IbdMatrix::subset_matrix(const std::vector<uint32_t> &in_subpop_ids)
     bool not_subsetted = this->subpop_ids.size() == 0;
     bool input_equal_to_member = this->subpop_ids == in_subpop_ids;
     bool is_valid = (not_subsetted || input_equal_to_member);
-    exit_on_false(is_valid,
-        "Error: subsetting already performed; new subsetting not allowed", __FILE__,
-        __LINE__);
+    my_assert(
+        is_valid, "Error: subsetting already performed; new subsetting not allowed");
 
     // copy args to member variable
     this->subpop_ids.reserve(in_subpop_ids.size());
@@ -205,10 +202,10 @@ IbdMatrix::subset_matrix(const std::vector<uint32_t> &in_subpop_ids)
         = std::adjacent_find(this->subpop_ids.begin(), this->subpop_ids.end())
           != this->subpop_ids.end();
     bool too_large = this->subpop_ids.back() >= d;
-    exit_on_false(!new_d_lt2, "subpop_ids should be at least 2", __FILE__, __LINE__);
-    exit_on_false(!has_repeat, "subpop_ids has repeated ids", __FILE__, __LINE__);
-    exit_on_false(!has_repeat, "subpop_ids has repeated ids", __FILE__, __LINE__);
-    exit_on_false(!too_large, "subpop_ids id out of range", __FILE__, __LINE__);
+    my_assert(!new_d_lt2, "subpop_ids should be at least 2");
+    my_assert(!has_repeat, "subpop_ids has repeated ids");
+    my_assert(!has_repeat, "subpop_ids has repeated ids");
+    my_assert(!too_large, "subpop_ids id out of range");
 
     // consolidate the matrix
     for (size_t i = 0; i < new_array_size; i++) {
@@ -242,10 +239,8 @@ void
 IbdMatrix::print_to_ostream(std::ostream &os, uint32_t r_first, uint32_t r_last,
     uint32_t c_first, uint32_t c_last)
 {
-    exit_on_false(
-        0 <= r_first && r_first < r_last && r_last < d, "", __FILE__, __LINE__);
-    exit_on_false(
-        0 <= c_first && c_first < c_last && c_last < d, "", __FILE__, __LINE__);
+    my_assert(0 <= r_first && r_first < r_last && r_last < d, "");
+    my_assert(0 <= c_first && c_first < c_last && c_last < d, "");
 
     for (uint32_t row = r_first; row <= r_last; row++) {
         for (uint32_t col = c_first; col <= c_last; col++) {

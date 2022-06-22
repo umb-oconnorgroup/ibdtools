@@ -16,7 +16,7 @@ IbdSplitter::IbdSplitter(const char *in_fn, const char *out_fn_prefix,
     : labels(labels_), cm_threshold(cm_threshold_)
 {
     BGZF *fp = bgzf_open(meta_fn, "r");
-    exit_on_false(fp != NULL, "", __FILE__, __LINE__);
+    my_assert(fp != NULL, "");
     meta = std::make_unique<MetaFile>();
     meta->read_from_file(fp);
     bgzf_close(fp);
