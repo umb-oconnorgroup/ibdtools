@@ -2,6 +2,7 @@
 
 import numpy as np
 from subprocess import run
+from pathlib import Path
 
 
 def read_ibdtools_mat(ibdtools_mat_fn):
@@ -9,7 +10,7 @@ def read_ibdtools_mat(ibdtools_mat_fn):
 
     # decompress the matrix file
     flat_mat_fn = "tmp_ibdtools_mat_flat"
-    cmd = f"gzip -dc {ibdtools_mat_fn} > {flat_mat_fn}"
+    cmd = f"gzip -dc {str(ibdtools_mat_fn)} > {flat_mat_fn}"
     run(cmd, shell=True)
 
     # uint8: is_hap,                         offset 0
@@ -30,10 +31,10 @@ def read_ibdtools_mat(ibdtools_mat_fn):
     arr_sz = yy // 2  # each array item is uint16
     subpop_sz = np.uint64(xx // 4)  # each supop id is uint32
 
-    print(f"- is_hap      : {is_hap}")
-    print(f"- arr_sz      : {arr_sz}")
-    print(f"- d           : {d}")
-    print(f"- #subpop ids : {subpop_sz}")
+    # print(f"- is_hap      : {is_hap}")
+    # print(f"- arr_sz      : {arr_sz}")
+    # print(f"- d           : {d}")
+    # print(f"- #subpop ids : {subpop_sz}")
 
     # load subpop id
     if xx == 0:
@@ -63,5 +64,15 @@ def read_ibdtools_mat(ibdtools_mat_fn):
     return is_hap, subpop_ids, M
 
 
-res = read_ibdtools_mat("./gw.mat.mat")
-print(res, res[2].sum())
+path = list(Path().glob("gw.mat*mat"))[0]
+res = read_ibdtools_mat(path)
+M = res[2]
+print(
+    f"""
+    ibd matrix: dimension = {M.shape}, 
+    max element =  {M.max()}
+    min_element = {M.min()}
+    min_nonzero_element = {M[M>0].min()}
+    percentage of nonzero elements = {M[M>0].size / M.size}
+    """
+)

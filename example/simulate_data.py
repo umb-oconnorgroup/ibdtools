@@ -11,7 +11,7 @@ chroms = list(range(1, 6))
 chrlens = [(20 + i * 4) * bp_per_cm for i in range(1, 6)]
 
 for i, (chrno, chrlen) in enumerate(zip(chroms, chrlens)):
-    print(f"Simulating chr {chrno}")
+    print(f"Simulating chr {chrno} via msprime")
 
     # simulate ancestry
     ts = msprime.sim_ancestry(
@@ -32,11 +32,11 @@ for i, (chrno, chrlen) in enumerate(zip(chroms, chrlens)):
             f, contig_id=f"{chrno}", individual_names=[f"ind{i:3d}" for i in range(50)]
         )
 
-    # add a low density region
+    # add a zero snp-density region
     cmd = f"""
         bgzip -f {chrno}.vcf; mv {chrno}.vcf.gz tmp_{chrno}.vcf.gz; bcftools index -f tmp_{chrno}.vcf.gz
         bcftools view -r {chrno}:1-5000000,{chrno}:8000000-{chrlen} tmp_{chrno}.vcf.gz -Oz -o {chrno}.vcf.gz
-        rm tmp_{chrno}.vcf.gz
+        rm tmp_{chrno}.vcf.gz*
     """
     run(cmd, shell=True)
 
@@ -60,8 +60,9 @@ for i, (chrno, chrlen) in enumerate(zip(chroms, chrlens)):
             f.write(response.content)
 
     # run hapibd
+    print("\tCalling IBD via hap-ibd")
     cmd = f"java -Xmx1g -jar {hapibd_jar} gt={chrno}.vcf.gz map={chrno}.map out={chrno}"
-    run(cmd, shell=True)
+    _ = run(cmd, shell=True, capture_output=True)
 
     # clean up files
     pathlib.Path(f"{chrno}.log").unlink()
