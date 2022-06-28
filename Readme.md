@@ -6,11 +6,11 @@ without recombination. The concept is important in understanding the genetic
 relatedness, population structure and effective population size in recent
 generations. As different individual pairs may share IBD segments of different
 lengths over different genomic regions, the number of IBD segments increase
-quadraticlly with increasing sample size, and proportionally with genome size. 
+quadratically with increasing sample size, and proportionally with genome size. 
 High recombination rate as well as genotyping/phasing errors can break down long
 IBD segments into multiple shorter segments, making the scale even larger.
 
-Recently, several IBD calling tools, such as hap-IBD, iLASH, and TPBWT, have
+Recently, several IBD calling tools, such as hap-IBD, iLASH, RaPID, and TPBWT, have
 been designed to efficiently detect IBD segments using phased genotype data.
 However, fewer tools were designed to handle this large-scale IBD data. The
 convenience of R and python in handling the IBD result (table/data frame) comes
@@ -42,7 +42,7 @@ we will add more functions into this program.
   sites. This sub-command reimplements the algorithm in Dr. Browning's
   `merge-ibd-segments` tool for stability and consistency purposes.
 - `ibdtools matrix`: allow aggregating IBD segments into chromosome-wide and
-  genome-wide total IBD and output total IBD matrix for downstream analysis.
+  genome-wide total IBD and output total IBD matrix for downstream analyses.
   During the aggregation process, IBD can be filtered at different levels
   including the subpopulation, IBD segment length, and total IBD length.
 - `ibdtools snpdens`: calculate SNP density across chromosome.
@@ -86,11 +86,12 @@ cd example
 ./simulate_data.py
 
 # running ibdtools on the simulated input data
-example/example.sh
-```
+./run_ibdtools.sh
 
 # Read ibdtools matrix to numpy array
-See `example/read_mat.py` 
+./read_mat.py
+
+```
 
 # Documentation
 
