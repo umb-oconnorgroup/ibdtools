@@ -9,6 +9,7 @@
 #include "samples.hpp"
 #include <charconv>
 #include <filesystem>
+#include <fmt/format.h>
 #include <gtest/gtest.h>
 #include <random>
 
@@ -141,7 +142,144 @@ TEST(ibdtools, GeneticMap)
     }
 }
 
-TEST(ibdtools, Meta_read_write)
+static void
+simulate_vcf_map_files(const char *out_vcf_fn, const char *out_map_fn, int chrno,
+    size_t bp_per_cm, size_t chr_len_cm, size_t &num_snps, size_t num_samples,
+    std::vector<size_t> &pos, std::vector<uint8_t> &gt,
+    std::vector<std::string> &hap_vec, std::vector<std::string> &sample_vec)
+{
+    using namespace std;
+
+    // clear vectors
+    pos.clear();
+    gt.clear();
+    sample_vec.clear();
+
+    // buffer
+    string header_lines;
+    string record;
+    string haplotype;
+    header_lines.reserve(1000000);
+    record.reserve(1000000);
+    haplotype.reserve(1000000);
+
+    // output
+    ofstream vcf(out_vcf_fn);
+    ofstream map(out_map_fn);
+
+    // vcf header
+    header_lines
+        = fmt::format("##fileformat=VCFv4.1\n"
+                      "##contig=<ID={},length={}>\n"
+                      "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n"
+                      "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT",
+            chrno, bp_per_cm * chr_len_cm);
+    for (size_t i = 0; i < num_samples; i++) {
+        header_lines += fmt::format("\ts_{}", i);
+        sample_vec.push_back(fmt::format("s_{}", i));
+    }
+    header_lines += '\n';
+
+    // generate random snp positions and remove duplicates
+    random_device rd;
+    mt19937 gen(rd());
+    uniform_int_distribution<> unif(1, bp_per_cm * chr_len_cm);
+    bernoulli_distribution bernouli(0.05);
+    pos.reserve(num_snps);
+
+    for (size_t pos_i = 0; pos_i < num_snps; pos_i++) {
+        pos.push_back(unif(gen));
+    }
+    sort(pos.begin(), pos.end());
+    auto logical_end = unique(pos.begin(), pos.end());
+    pos.erase(logical_end, pos.end());
+
+    num_snps = pos.size();
+    gt.resize(num_snps * 2 * num_samples);
+
+    vcf << header_lines;
+
+    // generate genotypes per position
+    for (size_t bp : pos) {
+        haplotype = "";
+        record = fmt::format("{}\t{}\t.\tA\tT\t.\tPASS\t.\tGT", chrno, bp);
+        for (size_t s = 0; s < num_samples; s++) {
+            int a1 = bernouli(gen);
+            int a2 = bernouli(gen);
+            record += fmt::format("\t{}|{}", a1, a2);
+            gt.push_back(a1);
+            gt.push_back(a2);
+            haplotype += fmt::format("{}{}", a1, a2);
+        }
+        record += '\n';
+        vcf << record;
+        hap_vec.push_back(haplotype);
+    }
+
+    // generate genetic map file
+    map << fmt::format("{} {} {} {}\n", chrno, ".", 1.0 / bp_per_cm, 1);
+    map << fmt::format("{} {} {} {}\n", chrno, ".", chr_len_cm, bp_per_cm * chr_len_cm);
+
+    vcf.close();
+    map.close();
+}
+
+TEST(ibdtools, Meta_read_write_simulated_data)
+{
+    using namespace std;
+    size_t num_snps = 1000;
+    size_t num_sample = 100;
+    size_t bp_per_cm = 1000000;
+    size_t chr_len_cm = 20;
+    int chrno = 1;
+
+    vector<uint8_t> gt;
+    vector<size_t> pos;
+    vector<string> hap_vec;
+    vector<string> sample_vec;
+
+    simulate_vcf_map_files(temp_file1, temp_file2, chrno, bp_per_cm, chr_len_cm,
+        num_snps, num_sample, pos, gt, hap_vec, sample_vec);
+
+    MetaFile meta;
+    meta.parse_files(temp_file1, temp_file2, true, to_string(chrno));
+
+    BGZF *fp = bgzf_open(temp_file3, "w");
+    my_assert(fp, "bgzf_open error");
+    meta.write_to_file(fp);
+    bgzf_close(fp);
+    fp = NULL;
+
+    MetaFile meta2;
+    BGZF *fp2 = bgzf_open(temp_file3, "r");
+    my_assert(fp2, "bgzf_open error");
+    meta2.read_from_file(fp2, true);
+    bgzf_close(fp2);
+    fp2 = NULL;
+
+    EXPECT_EQ(meta.get_positions().is_equal(meta2.get_positions()), true);
+    for (size_t i = 0; i < num_snps; i++) {
+        auto &positions = meta.get_positions();
+        EXPECT_EQ(positions.get_bp(i), pos[i]);
+    }
+
+    EXPECT_TRUE(
+        meta.get_genotypes().get_haplotypes() == meta2.get_genotypes().get_haplotypes());
+    EXPECT_TRUE(meta.get_genotypes().get_haplotypes() == hap_vec);
+
+    EXPECT_TRUE(meta.get_samples().is_equal(meta2.get_samples()));
+    EXPECT_TRUE(meta.get_samples().get_num_samples() == sample_vec.size());
+    for (size_t i = 0; i < sample_vec.size(); i++) {
+        EXPECT_TRUE(meta.get_samples().get_name(i) == sample_vec[i]);
+    }
+
+    EXPECT_EQ(meta.get_genetic_map().get_bp(1.0 / bp_per_cm), 1);
+    EXPECT_EQ(meta.get_genetic_map().get_bp(chr_len_cm), chr_len_cm * bp_per_cm);
+    EXPECT_TRUE(meta.get_genetic_map().get_cm(1) - 1.0 / bp_per_cm < 1e-6);
+    EXPECT_EQ(meta.get_genetic_map().get_cm(chr_len_cm * bp_per_cm), chr_len_cm);
+}
+
+TEST(ibdtools, Meta_read_write_real_data)
 {
     MetaFile meta;
     meta.parse_files(vcf_fn, map_fn, true);
@@ -212,17 +350,30 @@ TEST(ibdtools, IbdFile_encode_raw_ibd)
     MetaFile meta;
     meta.parse_files(vcf_fn, map_fn, true);
 
-    IbdFile ibdfile1(temp_file1, &meta);
-    ibdfile1.open("w");
-    ibdfile1.from_raw_ibd(ibd_txt_fn);
-    ibdfile1.close();
+    {
+        IbdFile ibdfile1(temp_file1, &meta);
+        ibdfile1.open("w");
+        ibdfile1.encode_raw_ibd(ibd_txt_fn);
+        ibdfile1.close();
 
-    IbdFile ibdfile2(temp_file1, &meta);
-    ibdfile2.open("r");
-    ibdfile2.read_from_file();
-    ibdfile2.close();
+        IbdFile ibdfile2(temp_file1, &meta);
+        ibdfile2.open("r");
+        auto ret2 = ibdfile2.read_from_file(); // vector is not full
+        ibdfile2.close();
 
-    EXPECT_EQ(ibdfile1.has_equal_vector(ibdfile2), true);
+        IbdFile ibdfile3(temp_file1, &meta, 10);
+        ibdfile3.open("r");
+        auto ret3 = ibdfile3.read_from_file(); // vector is full
+        ibdfile3.close();
+
+        EXPECT_EQ(ibdfile1.has_equal_vector(ibdfile2), true);
+        EXPECT_EQ(ret2, false);
+        EXPECT_EQ(ret3, true);
+
+        for (size_t i = 0; i < ibdfile3.get_vec().size(); i++) {
+            EXPECT_EQ(ibdfile2.get_vec()[i], ibdfile3.get_vec()[i]);
+        }
+    }
 }
 
 TEST(ibdtools, IbdFile_decode_packed_ibd)
@@ -232,7 +383,7 @@ TEST(ibdtools, IbdFile_decode_packed_ibd)
 
     IbdFile ibdfile1(temp_file1, &meta);
     ibdfile1.open("w");
-    ibdfile1.from_raw_ibd(ibd_txt_fn); // encode from raw ibd file to temp_file
+    ibdfile1.encode_raw_ibd(ibd_txt_fn); // encode from raw ibd file to temp_file
     ibdfile1.close();
 
     IbdFile ibdfile2(temp_file1, &meta);
@@ -242,7 +393,7 @@ TEST(ibdtools, IbdFile_decode_packed_ibd)
 
     IbdFile ibdfile3(temp_file1, &meta);
     ibdfile3.open("w");
-    ibdfile3.from_raw_ibd(temp_file2); // encode again
+    ibdfile3.encode_raw_ibd(temp_file2); // encode again
     ibdfile3.close();
 
     EXPECT_EQ(true, ibdfile1.has_equal_vector(ibdfile3));
@@ -477,7 +628,7 @@ TEST(ibdtools, IbdSorter)
     // from TXT (ibd_txt_fn) --> Binary (temp_file1)
     IbdFile ibdfile1(temp_file1, &meta);
     ibdfile1.open("wu");
-    ibdfile1.from_raw_ibd(ibd_txt_fn);
+    ibdfile1.encode_raw_ibd(ibd_txt_fn);
     ibdfile1.close();
 
     // Sort: from Binary(temp_file1) to Binary(temp_file2)
@@ -517,7 +668,7 @@ TEST(ibdtools, IbdMerger)
 
     IbdFile ibdfile1(temp_file1, &meta);
     ibdfile1.open("wu");
-    ibdfile1.from_raw_ibd(ibd_txt_fn);
+    ibdfile1.encode_raw_ibd(ibd_txt_fn);
     ibdfile1.close();
 
     std::string out_prefix = temp_file2;
@@ -546,7 +697,7 @@ TEST(ibdtools, IbdMerger)
     // encode from brownning's merge txt file
     IbdFile merged_browning("/dev/null", &meta);
     merged_browning.open("w");
-    merged_browning.from_raw_ibd(browning_merged);
+    merged_browning.encode_raw_ibd(browning_merged);
     merged_browning.close();
     // set hap bits to 0
     for (auto &x : merged_browning.get_vec()) {
@@ -713,7 +864,7 @@ TEST(ibdtools, IbdSplitter)
 
         IbdFile ibdfile1(temp_file1, &meta);
         ibdfile1.open("wu");
-        ibdfile1.from_raw_ibd(ibd_txt_fn);
+        ibdfile1.encode_raw_ibd(ibd_txt_fn);
         ibdfile1.close();
 
         auto labels = meta.get_positions().get_gap_vector(2.0, 100);
@@ -788,7 +939,7 @@ TEST(ibdtools, IbdMatrix)
 
     IbdFile in(temp_file1, &meta);
     in.open("w");
-    in.from_raw_ibd(ibd_txt_fn);
+    in.encode_raw_ibd(ibd_txt_fn);
     in.close();
 
     IbdMatrix mat_sam, mat_hap;
@@ -910,7 +1061,7 @@ TEST(ibdtools, IbdCoverage_run_thru)
 
     IbdFile in(temp_file1, &meta);
     in.open("w");
-    in.from_raw_ibd(ibd_txt_fn);
+    in.encode_raw_ibd(ibd_txt_fn);
     in.close();
 
     IbdCoverage cov(temp_file1, "tmp_meta.gz", 1, 1000);
