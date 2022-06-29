@@ -34,8 +34,15 @@ class IbdFile
 
     void close();
 
-    void from_raw_ibd(const char *raw_ibd_in, int col_sample1 = 0, int col_sample2 = 2,
+    /* read/parse IBD from text format and save encoded IBD into output file
+     *
+     * Need to overwrite default parameters to new values if column orders/positions are
+     * different
+     * */
+    void encode_raw_ibd(const char *raw_ibd_in, int col_sample1 = 0, int col_sample2 = 2,
         int col_start = 5, int col_end = 6, int col_hap1 = 1, int col_hap2 = 3);
+
+    /* decode encoded IBD to text format and write to File of filename*/
     void to_raw_ibd(const char *raw_ibd_fn,
         size_t line_buffer_capcity = 10 * 1024 * 1024, const char *subpop_fn = NULL);
 

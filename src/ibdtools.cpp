@@ -40,7 +40,7 @@ ibdtools_encode_main(int argc, char *argv[])
     Options options("ibdtools encode",
         "ibdtools " MY_GIT_VERSION "  "
         "`ibdtools encode` encodes the ibd file from IBD caller, the vcf file (phased, "
-        "gimputed and biallelic) and the genetic map (plink format) information into "
+        "imputed and biallelic) and the genetic map (plink format) information into "
         "binary. NOTE: Each set of these files should contain information for a single "
         "chromosome. Files should be split if they contain more than one chromosomes. "
         "For vcf file, only the SNP positions and GT field are used. SNP positions by "
@@ -100,24 +100,29 @@ ibdtools_encode_main(int argc, char *argv[])
 
     ScopedTimer timer("ibdtools encode", true);
 
-    // call actual functions
-    // open file for save meta file
+    /* call actual functions */
+
+    // open file for saving the meta information
     BGZF *fp = NULL;
     fp = bgzf_open(meta_out_fn.c_str(), "w");
     my_assert(fp != NULL, "");
     bgzf_index_build_init(fp);
 
+    // create Meta file object and parse vcf(genotype information)/map files into memory
     MetaFile meta;
     meta.parse_files(vcf_in_fn.c_str(), map_in_fn.c_str(), true, chr_name.c_str());
+
+    // save encoded meta information to meta file (and index file)
     meta.write_to_file(fp);
     my_assert(0 == bgzf_index_dump(fp, meta_out_fn.c_str(), ".gzi"), "");
     bgzf_close(fp);
     fp = NULL;
 
     // encode ibdfile
-    IbdFile ibd_in(ibd_out_fn.c_str(), &meta, 1 * 1024 * 1024 * 1024);
+    size_t max_rec = mem * 1024 * 1024 * 1025 / sizeof(ibd_rec1_t);
+    IbdFile ibd_in(ibd_out_fn.c_str(), &meta, max_rec);
     ibd_in.open("w");
-    ibd_in.from_raw_ibd(ibd_in_fn.c_str());
+    ibd_in.encode_raw_ibd(ibd_in_fn.c_str());
     ibd_in.close();
 
     return 0;

@@ -83,7 +83,7 @@ IbdFile::close()
 }
 
 void
-IbdFile::from_raw_ibd(const char *raw_ibd_in, int col_sample1, int col_sample2,
+IbdFile::encode_raw_ibd(const char *raw_ibd_in, int col_sample1, int col_sample2,
     int col_start, int col_end, int col_hap1, int col_hap2)
 {
     my_assert(fp != NULL, "bgzf_open failed ");
@@ -92,15 +92,15 @@ IbdFile::from_raw_ibd(const char *raw_ibd_in, int col_sample1, int col_sample2,
     my_assert(col_sample1 < col_sample2 && col_start < col_end, "");
 
     // references
-    auto samples = meta->get_samples();
-    auto positions = meta->get_positions();
+    auto &samples = meta->get_samples();
+    auto &positions = meta->get_positions();
 
     // buffer string for reading
     kstring_t kstr = { 0 };
 
     // open file
     BGZF *fp_in = bgzf_open(raw_ibd_in, "r");
-    my_assert(fp_in != NULL, "bgzf_open failed to open ibd in file");
+    my_assert(fp_in != NULL, "bgzf_open: failed to open ibd in file");
 
     // threading
     bgzf_mt(fp_in, 10, 256);
@@ -113,23 +113,28 @@ IbdFile::from_raw_ibd(const char *raw_ibd_in, int col_sample1, int col_sample2,
     ibd_rec2_t rec2;
 
     while ((res = bgzf_getline(fp_in, '\n', &kstr)) > 0) {
+
+        // flush out encoded IBD to disk and empty out memory (vector) for new raw ibd
         if (ibd_vec.size() == ibd_vec.capacity()) {
-            //    std::cerr << "  Write encoded file " << ibd_vec.size() << '\n';
             write_to_file();
             ibd_vec.resize(0);
         }
+
         std::string_view sv(kstr.s, kstr.l);
 
         svs.split(sv);
 
         svs.get(col_sample1, strval);
         rec2.sid1 = samples.get_id(strval);
+
         svs.get(col_sample2, strval);
         rec2.sid2 = samples.get_id(strval);
+
         svs.get(col_start, u32val);
 
         rec2.pid1 = positions.get_id(u32val);
         svs.get(col_end, u32val);
+
         rec2.pid2 = positions.get_id(u32val);
         svs.get(col_hap1, u32val);
 
@@ -143,20 +148,18 @@ IbdFile::from_raw_ibd(const char *raw_ibd_in, int col_sample1, int col_sample2,
             std::swap(rec2.hid1, rec2.hid2);
         }
 
-        // push_back to vector
+        // push_back an encoded record to the vector
         ibd_vec.push_back(rec2);
     }
 
-    // flush out ibd_vec
+    // flush out ibd_vec when all input are parsed but the last chunk still
+    // stored in memory
     if (ibd_vec.size() > 0) {
-        // std::cerr << "  Write encoded file " << ibd_vec.size() << '\n';
         write_to_file();
-
-        // For debug purpose last flush not resize the vector
-        // ibd_vec.resize(0);
     }
 
-    // close file and dump index
+    // close input file
+    // out file will be closed and index dumped in the IbdFile::close() method.
     bgzf_close(fp_in);
     // free string buffer
     ks_free(&kstr);
@@ -306,10 +309,6 @@ IbdFile::write_to_file(IbdFile &other, size_t max)
     my_assert(cond, "");
 }
 
-// if new_capcity >= current capcity then enlarge the capacity
-// if append is false
-// @return  true if vector is full; false if vector not full, which
-// indicates end of file
 bool
 IbdFile::read_from_file(bool append, size_t new_capacity)
 {
