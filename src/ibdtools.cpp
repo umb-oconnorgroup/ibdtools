@@ -341,7 +341,8 @@ ibdtools_split_main(int argc, char *argv[])
         // ranges by SNP density
         BGZF *fp = bgzf_open(meta_in_fn.c_str(), "r");
         MetaFile meta;
-        meta.read_from_file(fp);
+        // skip reading genotyping
+        meta.read_from_file(fp, false);
         bgzf_close(fp);
 
         labels = meta.get_positions().get_gap_vector(window_cM, min_snp_in_window);
@@ -628,7 +629,8 @@ ibdtools_matrix_main(int argc, char *argv[])
     MetaFile meta;
     BGZF *fp = bgzf_open(meta_in.c_str(), "r");
     exit_on_false(fp != NULL, "", __FILE__, __LINE__);
-    meta.read_from_file(fp);
+    // skip reading genotype
+    meta.read_from_file(fp, false);
     bgzf_close(fp);
     fp = NULL;
 
@@ -773,7 +775,7 @@ ibdtools_decode_main(int argc, char *argv[])
     fp = bgzf_open(meta_in.c_str(), "r");
     exit_on_false(fp != NULL, "", __FILE__, __LINE__);
     MetaFile meta;
-    meta.read_from_file(fp);
+    meta.read_from_file(fp, false);
     bgzf_close(fp);
     fp = NULL;
 
@@ -848,7 +850,7 @@ ibdtools_view_main(int argc, char *argv[])
     MetaFile meta;
     BGZF *fp = bgzf_open(meta_in.c_str(), "r");
     exit_on_false(fp != NULL, "", __FILE__, __LINE__);
-    meta.read_from_file(fp);
+    meta.read_from_file(fp, false);
     bgzf_close(fp);
 
     IbdFile ibdfile(ibd_in.c_str(), &meta, mem / 10 * 1024 * 1024 * 1024);

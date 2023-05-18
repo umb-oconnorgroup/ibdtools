@@ -41,7 +41,8 @@ class IbdCoverage
         // read meta file
         BGZF *fp = bgzf_open(meta_fn, "r");
         exit_on_false(fp != NULL, "", __FILE__, __LINE__);
-        meta.read_from_file(fp);
+        // ignore genotypes to save memory
+        meta.read_from_file(fp,false);
         bgzf_close(fp);
 
         // parse subpop

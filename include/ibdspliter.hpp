@@ -24,7 +24,7 @@ class IbdSplitter
     {
         BGZF *fp = bgzf_open(meta_fn, "r");
         exit_on_false(fp != NULL, "", __FILE__, __LINE__);
-        meta.read_from_file(fp);
+        meta.read_from_file(fp, false);
         bgzf_close(fp);
 
         std::string prefix = out_fn_prefix;
