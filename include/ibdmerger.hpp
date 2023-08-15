@@ -61,7 +61,11 @@ class IbdMerger
         do {
             // read and append to in's vector
             read_full = in.read_from_file(true);
-            auto last = find_group_start(vec.size() - 1);
+
+            size_t last = 0;
+            if (vec.size() > 0) {
+                last = find_group_start(vec.size() - 1);
+            }
 
             // This is can split to many regions for paralellization
             merge_range(0, last);
